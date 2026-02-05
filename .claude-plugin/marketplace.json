@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "sam-plugin-marketplace",
+  "version": "1.0.0",
+  "description": "SAM (Specs → Stories → Development) Plugin for production-grade feature development from ideation to verified implementation through a structured four-phase workflow: Discovery, Stories, Specs, and Development.",
+  "owner": {
+    "name": "Steven Kyaw",
+    "email": ""
+  },
+  "plugins": [
+    {
+      "name": "sam-plugin",
+      "description": "A comprehensive development workflow plugin that orchestrates production-grade feature development from ideation to verified implementation through a structured four-phase workflow: Discovery, Stories, Specs, and Development.",
+      "source": ".",
+      "category": "development",
+      "version": "1.0.0",
+      "author": {
+        "name": "Steven Kyaw"
+      },
+      "keywords": [
+        "workflow",
+        "agile",
+        "user-stories",
+        "technical-specs",
+        "feature-development"
+      ]
+    }
+  ]
+}

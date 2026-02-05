@@ -2,6 +2,6 @@
   "name": "sam-plugin",
   "description": "SAM (Specs → Stories → Development) Plugin for production-grade feature development from ideation to verified implementation. Features: Feature discovery with web research, User story generation with verification, Technical specs with Context7 integration, and Guided development with code verification.",
   "author": {
-    "name": "SAM Plugin Team"
+    "name": "Steven Kyaw"
   }
 }
