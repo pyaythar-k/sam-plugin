@@ -60,19 +60,28 @@ Parallel Group 3 (Frontend):
 
 ### 3. MAIN DEVELOPMENT LOOP (Repeat Until All Tasks Complete)
 
-**CRITICAL INSTRUCTION**: This entire section MUST repeat until ALL checkboxes are `[x]`.
-DO NOT proceed to Section 4 until 100% of tasks are complete.
+**AUTONOMOUS EXECUTION MANDATE**: This skill operates in FULLY AUTONOMOUS mode.
+You MUST continue execution WITHOUT stopping or asking for confirmation unless
+you encounter a CRITICAL BLOCKER (defined below). When in doubt: KEEP GOING.
 
 **Loop Condition**:
 ```
 while (uncompleted_checkboxes_exist in TECHNICAL_SPEC.md):
-    execute_sections_3_1_through_3_7()
+    execute_sections_3_1_through_3_8()
 ```
 
-**Stopping Rules**:
-- ✅ CONTINUE if: Any `[ ]` checkboxes remain in TECHNICAL_SPEC.md
-- ⚠️ PAUSE and ask user if: Blocked by external dependency (API down, credentials needed, architecture decision required)
-- ❌ DO NOT STOP if: Verification shows gaps → Create fix tasks as new checkboxes and continue loop
+**CRITICAL BLOCKER DEFINITION** (ONLY stop for these):
+- 🔴 CRITICAL BLOCKER: External service is DOWN (API returns 500/502/503, confirmed not transient)
+- 🔴 CRITICAL BLOCKER: Required credentials/keys are MISSING and CANNOT be obtained from:
+  - Environment variables, .env files, documentation, .sam/{feature_id}/ directory
+- 🔴 CRITICAL BLOCKER: Git repository state is CORRUPTED
+
+**MUST NOT STOP FOR** (Continue autonomous execution):
+- ✅ Minor linting/type/build/test errors → Fix and continue
+- ✅ Missing dependencies → Install and continue
+- ✅ Ambiguous requirements → Make best interpretation, document, continue
+- ✅ Architecture decisions → Make decision based on best practices, document, continue
+- ✅ Verification gaps → Create fix tasks and continue loop
 
 #### 3.1 Task Planning (Each Loop Iteration)
 
@@ -89,6 +98,13 @@ while (uncompleted_checkboxes_exist in TECHNICAL_SPEC.md):
 #### 3.2 Spawn Parallel Subagents
 
 For the CURRENT iteration's parallel task group:
+
+**SUBAGENT AUTONOMOUS EXECUTION RULES**:
+- Each subagent MUST complete its task WITHOUT asking for confirmation
+- If issues encountered → Attempt autonomous resolution (up to 3 retries)
+- Document issues, create fix tasks if unable to resolve
+- DO NOT ask "Should I do X?" → Just do X
+- DO NOT ask "Which approach?" → Choose best practice
 
 1. **Spawn Subagents**: Launch multiple subagents simultaneously using Task tool
 2. **Implementation**: Each subagent:
@@ -127,7 +143,32 @@ After each task completes successfully:
      - Completed: 2025-02-05
    ```
 
-#### 3.5 Check Loop Condition
+#### 3.5 MANDATORY QUALITY GATE CHECKPOINT
+
+**CRITICAL**: Before EVERY loop iteration, you MUST:
+
+1. **Run ALL Quality Checks**:
+   ```bash
+   ./skills/sam-develop/scripts/lint_build_test.sh
+   ```
+
+2. **Verify Check Results**:
+   - If ALL pass → Proceed to step 3
+   - If ANY fails → Fix, re-run, DO NOT proceed until ALL pass
+
+3. **Update TECHNICAL_SPEC.md Progress**:
+   - Mark completed tasks as `[x]`
+   - Add completion notes with timestamp
+   - Save the file
+
+**QUALITY GATE RESULTS MUST BE**:
+- ✅ Linting: PASSED (0 errors, 0 warnings)
+- ✅ Type Checking: PASSED (0 type errors)
+- ✅ Build: PASSED (successful compilation)
+- ✅ Unit Tests: PASSED (all tests passing)
+- ✅ E2E Tests: PASSED (or N/A if not configured)
+
+#### 3.6 Check Loop Condition
 
 **After each iteration, explicitly check**:
 ```bash
@@ -138,33 +179,56 @@ grep -c '\[ \]' .sam/{feature_id}/TECHNICAL_SPEC.md
 - If count = 0: All tasks complete → EXIT loop and proceed to Section 4
 - If count > 0: Uncompleted tasks remain → RETURN to Section 3.1
 
-#### 3.6 Handle Failures
+#### 3.7 Handle Failures
 
 **For failed quality gates**:
 - Create specific fix task
 - Add as new checkbox in TECHNICAL_SPEC.md
 - Continue loop with fix task
+- DO NOT pause or ask for confirmation
 
-**For blocking issues**:
+**For CRITICAL BLOCKERS only** (see definition in Section 3):
 - Document the blocker
 - PAUSE and ask user for guidance
 - Do NOT exit the loop
 
-#### 3.7 Loop Back Instruction
+#### 3.8 Loop Back Instruction
 
-**CRITICAL**: After completing sections 3.1 through 3.6:
-1. Re-read TECHNICAL_SPEC.md
-2. Count uncompleted checkboxes
-3. **If any `[ ]` remain: RETURN to Section 3.1**
-4. **If all `[x]`: Proceed to Section 4**
+**Decision**:
+- If count = 0: All tasks complete → EXIT loop and proceed to Section 4
+- If count > 0: Uncompleted tasks remain → **RETURN to Section 3.1 WITHOUT ASKING**
+
+**IMPORTANT**: The transition from 3.8 back to 3.1 is AUTOMATIC.
+- ❌ DO NOT ask for confirmation
+- ❌ DO NOT report status
+- ❌ DO NOT pause for any reason
+- ✅ IMMEDIATELY continue to 3.1
 
 ### 4. Verification Phase (ONLY After 100% Completion)
 
 **IMPORTANT**: Only run this AFTER Section 3 loop is complete (all checkboxes are `[x]`).
 
+#### 4.1 MANDATORY PRE-VERIFICATION QUALITY GATES
+
+**CRITICAL**: Before running ANY verification checks, you MUST:
+
+1. **Run Complete Quality Gate Suite**:
+   ```bash
+   ./skills/sam-develop/scripts/lint_build_test.sh
+   ```
+
+2. **IF ANY CHECK FAILS**:
+   - DO NOT proceed to verification
+   - Create fix task checkboxes
+   - Return to Section 3.1
+   - Complete fix tasks
+   - Only return to Section 4 when ALL pass
+
+3. **Only when ALL quality gates pass** → Proceed to Section 4.2
+
 Spawn a code verifier subagent that checks:
 
-#### 4.1 Coverage Checks
+#### 4.2 Coverage Checks
 
 1. **User Story Coverage**
    - Parse all user story acceptance criteria from `.sam/{feature_id}/USER_STORIES/*.md`
@@ -187,7 +251,7 @@ Spawn a code verifier subagent that checks:
    - Run E2E tests: `npm run test:e2e`
    - Verify user flows work end-to-end
 
-#### 4.2 Gap Closure Loop
+#### 4.3 Gap Closure Loop
 
 If verification finds gaps:
 
@@ -434,34 +498,47 @@ Development phase is complete when:
 
 ## Error Handling
 
-**If linting fails:**
-- Identify specific linting errors
-- Fix issues in code
-- Re-run linting
-- Continue after passing
+### AUTONOMOUS ERROR RESOLUTION MANDATE
 
-**If type checking fails:**
-- Identify type errors
-- Add type annotations
-- Fix type mismatches
-- Re-run type checking
+**CRITICAL**: ALL errors MUST be resolved autonomously. DO NOT ask user for help
+unless you've exhausted ALL autonomous resolution options (3+ retry attempts).
 
-**If build fails:**
-- Identify build errors
-- Fix compilation issues
-- Re-run build
+**If linting fails**:
+1. Identify specific errors
+2. Fix autonomously (add imports, fix syntax, resolve types)
+3. Re-run linting
+4. If still failing after 3 attempts → Create fix task checkbox, continue
 
-**If tests fail:**
-- Identify failing tests
-- Determine if test or implementation is wrong
-- Fix accordingly
-- Re-run tests
+**If type checking fails**:
+1. Identify type errors
+2. Fix autonomously (add type annotations, fix mismatches)
+3. Re-run type checking
+4. If still failing after 3 attempts → Create fix task checkbox, continue
 
-**If E2E tests fail:**
-- Identify failing scenarios
-- Debug with browser DevTools
-- Fix implementation or update test
-- Re-run E2E tests
+**If build fails**:
+1. Identify build errors
+2. Fix autonomously (resolve compilation issues)
+3. Re-run build
+4. If still failing after 3 attempts → Create fix task checkbox, continue
+
+**If tests fail**:
+1. Identify failing tests
+2. Determine if test or implementation is wrong
+3. Fix autonomously based on best practices
+4. Re-run tests
+5. If still failing after 3 attempts → Create fix task checkbox, continue
+
+**If E2E tests fail**:
+1. Identify failing scenarios
+2. Debug autonomously
+3. Fix implementation or update test
+4. Re-run E2E tests
+5. If still failing after 3 attempts → Create fix task checkbox, continue
+
+**If credentials/keys are missing**:
+1. Search for credentials in: env vars, .env files, docs, .sam/{feature_id}/
+2. If found → Use and continue
+3. If NOT found after exhaustive search → **CRITICAL BLOCKER** → PAUSE and ask user
 
 ## Dependencies
 
