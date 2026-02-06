@@ -14,7 +14,19 @@ import re
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, TypedDict
+
+
+class FeatureStatus(TypedDict):
+    """Type dictionary for feature status structure."""
+    id: str
+    name: str
+    phase: str
+    progress: int
+    icon: str
+    stories: int
+    tasks_completed: int
+    tasks_total: int
 
 
 def parse_checkboxes(spec_file: Path) -> Tuple[int, int]:
@@ -31,14 +43,14 @@ def parse_checkboxes(spec_file: Path) -> Tuple[int, int]:
     return completed, total
 
 
-def get_feature_status(feature_dir: Path) -> Dict:
+def get_feature_status(feature_dir: Path) -> FeatureStatus:
     """Determine the status of a feature."""
     feature_doc = feature_dir / "FEATURE_DOCUMENTATION.md"
     stories_dir = feature_dir / "USER_STORIES"
     spec_file = feature_dir / "TECHNICAL_SPEC.md"
     verification_report = feature_dir / "VERIFICATION_REPORT.md"
 
-    status = {
+    status: FeatureStatus = {
         'id': feature_dir.name,
         'name': feature_dir.name.replace('_', ' ').title(),
         'phase': 'Unknown',
@@ -88,7 +100,7 @@ def get_feature_status(feature_dir: Path) -> Dict:
     return status
 
 
-def generate_status_report(features: List[Dict]) -> str:
+def generate_status_report(features: List[FeatureStatus]) -> str:
     """Generate the status report markdown."""
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
@@ -144,7 +156,7 @@ Generated: {now}
     return report
 
 
-def print_terminal_summary(features: List[Dict]):
+def print_terminal_summary(features: List[FeatureStatus]):
     """Print a terminal-friendly summary."""
     print("\n" + "=" * 60)
     print("  SAM Feature Status Report")

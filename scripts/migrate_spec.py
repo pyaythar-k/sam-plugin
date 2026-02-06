@@ -146,6 +146,9 @@ def generate_tasks_json(spec_file: Path, feature_id: str) -> dict:
     parser_path = Path(__file__).parent.parent / 'skills' / 'sam-specs' / 'scripts' / 'spec_parser.py'
 
     spec = importlib.util.spec_from_file_location("spec_parser", parser_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Failed to load spec from {parser_path}")
+
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 

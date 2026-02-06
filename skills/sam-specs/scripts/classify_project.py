@@ -17,7 +17,7 @@ import sys
 import json
 import logging
 from pathlib import Path
-from typing import Optional, TypedDict, List, Dict, Union
+from typing import Optional, TypedDict, List, Dict, Any, cast
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -139,7 +139,7 @@ def update_tasks_json(feature_dir: Path, project_type: str) -> bool:
     else:
         try:
             with open(tasks_file, 'r') as f:
-                data = json.load(f)
+                data: Dict[str, Any] = cast(Dict[str, Any], json.load(f))
         except json.JSONDecodeError:
             print(f"Error: Failed to parse {tasks_file}")
             return False
