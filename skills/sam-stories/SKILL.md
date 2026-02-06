@@ -166,6 +166,78 @@ You MUST generate each USER STORY file following THIS EXACT STRUCTURE:
 
 ---
 
+## Behavioral Scenarios (Gherkin) (OPTIONAL)
+
+*(New in Phase 2: Behavior Modeling)*
+
+This section is optional but recommended for better testability and stakeholder communication.
+
+### What are Gherkin Scenarios?
+
+Gherkin scenarios use Given-When-Then format to describe behavior in a way that:
+- Non-technical stakeholders can understand
+- Can be converted to automated tests
+- Maps directly to acceptance criteria
+
+### When to Use Gherkin
+
+Use Gherkin scenarios when:
+- Acceptance criteria involve complex user workflows
+- You want executable tests from stories
+- Non-technical stakeholders need to validate test coverage
+- You're using behavior-driven development (BDD)
+
+### Example Gherkin Scenarios
+
+```gherkin
+Scenario 1: User logs in with valid credentials
+  Given I am on the login page
+  When I enter valid email and password
+  And I click the login button
+  Then I should be authenticated
+  And I should see my dashboard
+
+Scenario Outline: Login validation
+  Given I am on the login page
+  When I enter <email> and <password>
+  And I click the login button
+  Then I should receive <result>
+
+  Examples:
+    | email | password | result |
+    | valid@email.com | correct123 | success |
+    | invalid@email.com | wrong123 | error |
+    | | any | validation_error |
+```
+
+### Reusable Step Library
+
+Common Gherkin steps are available in:
+```
+skills/sam-specs/templates/GHERKIN_STEPS.md
+```
+
+Reference this library to:
+- Use standardized step language
+- Maintain consistency across stories
+- Reduce test maintenance overhead
+
+### Generating Tests from Gherkin
+
+After creating stories with Gherkin scenarios:
+
+```bash
+# Generate Cucumber tests
+python3 skills/sam-specs/scripts/gherkin_to_test.py .sam/{feature}/USER_STORIES/ --framework cucumber
+
+# Generate Jest tests
+python3 skills/sam-specs/scripts/gherkin_to_test.py .sam/{feature}/USER_STORIES/ --framework jest
+```
+
+This is completely optional - traditional checkbox-style acceptance criteria work perfectly fine. Use Gherkin when it adds value for your project.
+
+---
+
 ## Technical Considerations
 
 ### Implementation Approach

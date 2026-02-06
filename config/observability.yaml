@@ -1,0 +1,105 @@
+# SAM Observability Configuration
+# Version: 1.0
+
+version: "1.0"
+
+# Logging Configuration
+logging:
+  # Default log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: INFO
+
+  # Log format: json or text
+  format: json
+
+  # Output destinations
+  outputs:
+    # Console output (human-readable)
+    - type: console
+      enabled: true
+      format: text  # text for human-readable
+
+    # File output (JSON for machine parsing)
+    - type: file
+      enabled: true
+      path: .sam/logs/sam.log
+      rotation:
+        max_size_mb: 100
+        max_files: 10
+
+  # Component-specific log levels
+  components:
+    sam-specs: INFO
+    sam-develop: DEBUG
+    sam-status: INFO
+    sam-validate: INFO
+    sam-stories: INFO
+    sam-discover: INFO
+    sam-observe: INFO
+
+# Metrics Configuration
+metrics:
+  # Enable/disable metrics collection
+  enabled: true
+
+  # Storage type: file, memory
+  storage: file
+
+  storage_options:
+    # Directory for metrics storage
+    path: .sam/metrics/
+    # Retention period in days
+    retention_days: 30
+
+  # Metrics to collect
+  collect:
+    - timing      # Operation durations
+    - counters    # Event counts
+    # - resource  # CPU/memory usage (optional)
+
+# Tracing Configuration
+tracing:
+  # Enable/disable distributed tracing
+  enabled: true
+
+  # Sampling rate (1.0 = 100% of traces)
+  sample_rate: 1.0
+
+  storage:
+    # Storage type: file, memory
+    type: file
+    # Directory for trace storage
+    path: .sam/traces/
+
+  # Maximum spans per trace
+  max_spans_per_trace: 1000
+
+# Error Tracking Configuration
+errors:
+  # Enable/disable error tracking
+  enabled: true
+
+  storage:
+    # Directory for error storage
+    path: .sam/errors/
+    # Retention period in days
+    retention_days: 90
+
+  # Maximum stack frames to capture
+  max_stack_frames: 50
+
+# Feature Flags
+features:
+  # Maintain backward compatibility (preserve print output)
+  backward_compatible: true
+
+  # Optional integrations (requires additional packages)
+  prometheus_integration: false
+  sentry_integration: false
+
+# Environment Variable Overrides
+# Any setting can be overridden using environment variables:
+# Format: SAM_OBS_{SECTION}__{KEY}=value
+# Examples:
+#   SAM_OBS_LOGGING__LEVEL=DEBUG
+#   SAM_OBS_METRICS__ENABLED=false
+#   SAM_OBS_TRACING__SAMPLE_RATE=0.1

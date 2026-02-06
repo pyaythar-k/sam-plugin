@@ -20,10 +20,15 @@ Utility skill for tracking progress across all SAM features. Provides an at-a-gl
 
 ```bash
 /sam-status [feature_id]
+/sam-status --metrics     # Show performance metrics
+/sam-status --watch       # Auto-refresh mode
+/sam-status --interval 10 # Custom refresh interval
 ```
 
 - Without arguments: Shows status of all features
 - With feature_id: Shows detailed status of specific feature
+- With `--metrics`: Shows performance metrics from observability system
+- With `--watch`: Enables auto-refresh mode for real-time monitoring
 
 ## Workflow
 
@@ -142,6 +147,77 @@ Specs: Number of spec sections / Total sections
 Development: Completed checkboxes / Total checkboxes
 Completed: 100%
 ```
+
+## Production Readiness Indicators (NEW)
+
+When showing development status, also check for production readiness:
+
+```bash
+# Check for circular dependencies (deadlock risk)
+python3 skills/sam-specs/scripts/impact_analyzer.py .sam/{feature} --check-cycles
+
+# Check quality gate status from TASKS.json checkpoint
+cat .sam/{feature}/TASKS.json | jq .checkpoint.last_quality_gate_result
+
+# Check for rollback checkpoints
+ls -la .sam/{feature}/.rollback/checkpoints.json
+```
+
+**Enhanced Status Report Includes:**
+- 🔴 Circular dependencies detected (blocks parallel execution)
+- 🟢 Quality gate status (linting, type-check, build, tests)
+- 🟢 Rollback checkpoints available (recovery capability)
+- ⚠️  Placeholder validation status (spec completeness)
+
+**Example Enhanced Status:**
+```
+🚧 002_user_profiles
+  Phase: Development (65%)
+  [████████████░░░░░░░]
+  ├─ Tasks: 13/20 complete
+  ├─ Pending: 7
+  ├─ Performance: P95 parse: 234ms
+  └─ ⚠️  Errors: 2
+```
+
+## Observability Integration (Phase 5)
+
+The sam-status skill now integrates with the observability system to provide:
+
+### Performance Metrics
+- **P95 Parse Time**: Shows 95th percentile parsing duration for specs
+- **Error Count**: Displays number of errors tracked for each feature
+- **Real-time Updates**: Watch mode for live status monitoring
+
+### New CLI Options
+```bash
+# Show performance metrics
+python3 skills/sam-status/scripts/status_report.py --metrics
+
+# Watch mode (auto-refresh every 5 seconds)
+python3 skills/sam-status/scripts/status_report.py --watch
+
+# Custom refresh interval
+python3 skills/sam-status/scripts/status_report.py --watch --interval 10
+```
+
+### Enhanced Output with Metrics
+```
+🚧 002_user_profiles
+  Phase: Development (65%)
+  [████████████░░░░░░░]
+  ├─ Tasks: 13/20 complete
+  ├─ Pending: 7
+  ├─ Performance: P95 parse: 234ms    ← From observability
+  └─ ⚠️  Errors: 2                     ← From error tracker
+```
+
+### Observability Status
+When `--metrics` is enabled, the report shows:
+- Whether observability is enabled
+- Per-feature performance data
+- Error counts from the error tracker
+- Historical trends (from metrics storage)
 
 ## Dependencies
 

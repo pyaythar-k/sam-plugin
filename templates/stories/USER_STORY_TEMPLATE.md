@@ -47,6 +47,36 @@
 
 ---
 
+## Behavioral Scenarios (Gherkin)
+
+*(Optional)* Use this section to define behavior-driven test scenarios that non-technical stakeholders can understand and validate. These scenarios follow the Given-When-Then format and can be converted to automated tests.
+
+### Scenario 1: {Scenario Name}
+
+**Given** the system is in the initial state
+  **And** {additional precondition}
+**When** I {action}
+**Then** {expected outcome}
+  **And** {additional outcome}
+
+### Scenario Outline: {Parameterized Scenario}
+
+Use scenario outlines when you need to test the same behavior with multiple combinations of inputs.
+
+**Given** a <user_type> with <status>
+**When** I request <resource>
+**Then** I should receive <response_code>
+
+| Examples: |
+| user_type | status | resource | response_code |
+| admin | active | /api/users | 200 |
+| guest | inactive | /api/users | 401 |
+| member | suspended | /api/users | 403 |
+
+---
+
+## Technical Considerations
+
 ## Technical Considerations
 
 ### Implementation Approach

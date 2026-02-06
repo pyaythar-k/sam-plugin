@@ -1,0 +1,313 @@
+# SAM Quality Gates - GitLab CI Pipeline
+# Runs comprehensive quality checks on every push and merge request
+# Part of Phase 3: Integration & Automation
+
+variables:
+  NODE_VERSION: "20"
+  COVERAGE_THRESHOLD: 80
+  CACHE_KEY_PREFIX: "sam-plugin"
+  # Cache npm dependencies
+  npm_config_cache: "${CI_PROJECT_DIR}/.npm-cache"
+  # Disable progress bars for cleaner CI output
+  CI: "true"
+  TERM: "dumb"
+
+stages:
+  - quality
+  - test
+  - coverage
+  - security
+  - contract
+  - e2e
+  - report
+
+# Cache configuration
+.cache_template: &cache_config
+  cache:
+    key:
+      files:
+        - package-lock.json
+      prefix: ${CACHE_KEY_PREFIX}-node-${NODE_VERSION}
+    paths:
+      - node_modules/
+      - .npm-cache/
+    policy: pull-push
+
+# Job templates
+.base_job: &base_job
+  <<: *cache_config
+  image: node:${NODE_VERSION}
+  before_script:
+    - npm ci --prefer-offline --no-audit
+
+# Stage 1: Quality checks (fast feedback)
+# --------------------------------------
+
+lint:
+  <<: *base_job
+  stage: quality
+  script:
+    - npm run lint -- --format json --output-file lint-results.json || true
+    - npm run lint
+  artifacts:
+    when: always
+    paths:
+      - lint-results.json
+    reports:
+      lint: lint-results.json
+    expire_in: 7 days
+  allow_failure: false
+
+type-check:
+  <<: *base_job
+  stage: quality
+  script:
+    - npm run type-check
+  allow_failure: false
+
+build:
+  <<: *base_job
+  stage: quality
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+      - build/
+    expire_in: 1 day
+  allow_failure: false
+
+# Stage 2: Unit tests
+# ------------------
+
+unit_tests:
+  <<: *base_job
+  stage: test
+  parallel:
+    matrix:
+      - NODE_VERSION: ["18", "20"]
+  script:
+    - npm ci --prefer-offline --no-audit
+    - npm test -- --coverage --coverageReporters=json --coverageReporters=text --coverageReporters=lcov --json --outputFile=test-results.json
+  coverage: '/All files[^|]*\|[^|]*([\d\.]+)/'
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+      - test-results.json
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+      junit: test-results.json
+    expire_in: 7 days
+  allow_failure: false
+
+# Stage 3: Coverage enforcement
+# -----------------------------
+
+coverage_enforcement:
+  <<: *base_job
+  stage: coverage
+  dependencies:
+    - unit_tests
+  before_script:
+    - apt-get update && apt-get install -y python3 python3-pip
+    - pip3 install --break-system-packages pyyaml requests
+    - npm ci --prefer-offline --no-audit
+  script:
+    - python3 skills/sam-develop/scripts/coverage_enforcer.py . --threshold $COVERAGE_THRESHOLD --json-output > coverage-result.json
+    - python3 skills/sam-develop/scripts/coverage_enforcer.py . --badge > coverage-badge.svg
+    - |
+      COVERAGE_PASSED=$(python3 -c "import json; data=json.load(open('coverage-result.json')); print(data.get('passed', False))")
+      if [ "$COVERAGE_PASSED" != "True" ]; then
+        echo "❌ Coverage below threshold"
+        cat coverage-result.json
+        exit 1
+      fi
+      echo "✅ Coverage threshold met"
+  artifacts:
+    when: always
+    paths:
+      - coverage-result.json
+      - coverage-badge.svg
+    expire_in: 30 days
+  allow_failure: false
+
+# Upload coverage to external services
+coverage_upload:
+  <<: *base_job
+  stage: coverage
+  dependencies:
+    - unit_tests
+  script:
+    - |
+      if [ -n "$CODECOV_TOKEN" ]; then
+        curl -Os https://uploader.codecov.io/latest/linux/codecov
+        chmod +x codecov
+        ./codecov -t $CODECOV_TOKEN -f coverage/lcov.info -F unittests || true
+      else
+        echo "Codecov token not set, skipping upload"
+      fi
+  allow_failure: true
+
+# Stage 4: Security tests
+# -----------------------
+
+security_audit:
+  <<: *base_job
+  stage: security
+  script:
+    - npm audit --audit-level=moderate --json > npm-audit.json || true
+    - npm audit --audit-level=high
+    - python3 skills/sam-specs/scripts/security_test_generator.py . --verify || true
+  artifacts:
+    when: always
+    paths:
+      - npm-audit.json
+      - security-test-results.json
+    expire_in: 30 days
+  allow_failure: true
+
+# Stage 5: Contract tests
+# -----------------------
+
+contract_tests:
+  <<: *base_job
+  stage: contract
+  dependencies:
+    - unit_tests
+  before_script:
+    - apt-get update && apt-get install -y python3 python3-pip
+    - pip3 install --break-system-packages pyyaml requests
+    - npm ci --prefer-offline --no-audit
+  script:
+    - python3 skills/sam-develop/scripts/contract_test_runner.py . --check
+  artifacts:
+    when: always
+    paths:
+      - contract-test-results.json
+    expire_in: 7 days
+  allow_failure: false
+
+# Stage 6: E2E tests (optional)
+# ------------------------------
+
+e2e_tests:
+  <<: *base_job
+  stage: e2e
+  dependencies:
+    - unit_tests
+  before_script:
+    - npm ci --prefer-offline --no-audit
+    - npx playwright install --with-deps
+  script:
+    - npm run test:e2e
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+      - test-results/
+    expire_in: 7 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  allow_failure: true
+
+# Stage 7: Final report
+# ---------------------
+
+quality_gate:
+  <<: *base_job
+  stage: report
+  dependencies:
+    - lint
+    - type-check
+    - build
+    - unit_tests
+    - coverage_enforcement
+    - contract_tests
+    - security_audit
+  before_script:
+    - apt-get update && apt-get install -y python3 python3-pip
+    - pip3 install --break-system-packages pyyaml requests
+  script:
+    # Run comprehensive quality gate
+    - ./skills/sam-develop/scripts/lint_build_test.sh --json-output > quality-gate-final.json
+    # Generate CI status report
+    - python3 skills/sam-develop/scripts/ci_helpers.py --generate-report --output gitlab-ci-report.md
+    # Check final status
+    - |
+      STATUS=$(python3 -c "import json; data=json.load(open('quality-gate-final.json')); print(data.get('overall', 'failed'))")
+      if [ "$STATUS" != "passed" ]; then
+        echo "❌ Quality gate failed"
+        cat quality-gate-final.json
+        exit 1
+      fi
+      echo "✅ All quality gates passed"
+  artifacts:
+    when: always
+    paths:
+      - quality-gate-final.json
+      - gitlab-ci-report.md
+    reports:
+      # GitLab will parse and display this
+      quality_report: quality-gate-final.json
+    expire_in: 90 days
+  allow_failure: false
+
+# Update TASKS.json checkpoints
+update_checkpoints:
+  stage: report
+  image: python:3-slim
+  dependencies: []
+  before_script:
+    - pip3 install pyyaml requests
+  script:
+    # Find and update all TASKS.json files
+    - |
+      find .sam -name "TASKS.json" -type f 2>/dev/null | while read tasks_file; do
+        feature_dir=$(dirname "$tasks_file")
+        echo "Updating checkpoint for: $feature_dir"
+        python3 skills/sam-develop/scripts/ci_helpers.py \
+          --update-checkpoint \
+          --feature-dir "$feature_dir" \
+          --ci-environment "gitlab" \
+          --job-id "$CI_JOB_ID" \
+          --workflow "$CI_PIPELINE_ID" \
+          --status "$CI_JOB_STATUS"
+      done || echo "No TASKS.json files found"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  allow_failure: true
+
+# Pages for coverage reports (optional)
+pages:
+  stage: report
+  dependencies:
+    - unit_tests
+    - coverage_enforcement
+  script:
+    - mkdir -p public/coverage
+    - cp -r coverage/* public/coverage/ || true
+    - cp coverage-badge.svg public/ || true
+    # Generate index page
+    - |
+      cat > public/index.html <<'EOF'
+      <!DOCTYPE html>
+      <html>
+      <head><title>SAM Quality Reports</title></head>
+      <body>
+        <h1>SAM Plugin Quality Reports</h1>
+        <p><img src="coverage-badge.svg" alt="Coverage"></p>
+        <p><a href="coverage/">Coverage Report</a></p>
+      </body>
+      </html>
+      EOF
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  allow_failure: true

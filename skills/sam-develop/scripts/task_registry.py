@@ -33,6 +33,12 @@ class TaskInfo:
     section_start: int
     section_end: int
     dependencies: List[str] = field(default_factory=list)
+    # Phase 4: Validation & Verification fields
+    code_mappings: List[Dict[str, Any]] = field(default_factory=list)
+    verification_methods: List[Dict[str, Any]] = field(default_factory=list)
+    verification_status: str = "pending"  # "verified", "failed", "partial", "pending"
+    verified_at: Optional[str] = None
+    verification_coverage: float = 0.0
 
     @classmethod
     def from_dict(cls, data: dict) -> 'TaskInfo':
@@ -45,7 +51,13 @@ class TaskInfo:
             spec_file=data.get('spec_file', 'TECHNICAL_SPEC.md'),
             section_start=data.get('section_start', 0),
             section_end=data.get('section_end', 0),
-            dependencies=data.get('dependencies', [])
+            dependencies=data.get('dependencies', []),
+            # Phase 4 fields
+            code_mappings=data.get('code_mappings', []),
+            verification_methods=data.get('verification_methods', []),
+            verification_status=data.get('verification_status', 'pending'),
+            verified_at=data.get('verified_at'),
+            verification_coverage=data.get('verification_coverage', 0.0)
         )
 
 
@@ -56,6 +68,8 @@ class PhaseInfo:
     phase_name: str
     status: str
     tasks: List[TaskInfo] = field(default_factory=list)
+    # Phase 4: Phase gate result
+    gate_result: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> 'PhaseInfo':
@@ -65,7 +79,8 @@ class PhaseInfo:
             phase_id=data.get('phase_id', ''),
             phase_name=data.get('phase_name', ''),
             status=data.get('status', 'pending'),
-            tasks=tasks
+            tasks=tasks,
+            gate_result=data.get('gate_result')
         )
 
     def get_pending_tasks(self) -> List[TaskInfo]:
@@ -87,6 +102,20 @@ class CheckpointInfo:
     active_tasks: List[str] = field(default_factory=list)
     quality_gate_last_passed: Optional[str] = None
     last_quality_gate_result: Dict[str, str] = field(default_factory=dict)
+    coverage_last_checked: Optional[str] = None
+    coverage_percentage: Optional[float] = None
+    coverage_trend: List[Dict[str, Any]] = field(default_factory=list)
+    # CI/CD metadata fields (Phase 3)
+    last_ci_run: Optional[str] = None
+    ci_environment: Optional[str] = None
+    ci_job_id: Optional[str] = None
+    ci_workflow: Optional[str] = None
+    ci_status: Optional[str] = None
+    ci_metadata: Dict[str, Any] = field(default_factory=dict)
+    # Phase 4: Validation & Verification fields
+    phase_gate_status: Optional[Dict[str, Any]] = None
+    conflict_detection: Optional[Dict[str, Any]] = None
+    verification_status: Optional[Dict[str, Any]] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> 'CheckpointInfo':
@@ -98,7 +127,21 @@ class CheckpointInfo:
             current_phase=data.get('current_phase', '1'),
             active_tasks=data.get('active_tasks', []),
             quality_gate_last_passed=data.get('quality_gate_last_passed'),
-            last_quality_gate_result=data.get('last_quality_gate_result', {})
+            last_quality_gate_result=data.get('last_quality_gate_result', {}),
+            coverage_last_checked=data.get('coverage_last_checked'),
+            coverage_percentage=data.get('coverage_percentage'),
+            coverage_trend=data.get('coverage_trend', []),
+            # CI/CD metadata
+            last_ci_run=data.get('last_ci_run'),
+            ci_environment=data.get('ci_environment'),
+            ci_job_id=data.get('ci_job_id'),
+            ci_workflow=data.get('ci_workflow'),
+            ci_status=data.get('ci_status'),
+            ci_metadata=data.get('ci_metadata', {}),
+            # Phase 4 fields
+            phase_gate_status=data.get('phase_gate_status'),
+            conflict_detection=data.get('conflict_detection'),
+            verification_status=data.get('verification_status')
         )
 
 
@@ -138,6 +181,7 @@ class TaskRegistry:
                 'phase_id': p.phase_id,
                 'phase_name': p.phase_name,
                 'status': p.status,
+                'gate_result': p.gate_result,  # Phase 4 field
                 'tasks': [
                     {
                         'task_id': t.task_id,
@@ -149,7 +193,13 @@ class TaskRegistry:
                         'parent_task_id': None,
                         'dependencies': t.dependencies,
                         'story_mapping': None,
-                        'completion_note': None
+                        'completion_note': None,
+                        # Phase 4 fields
+                        'code_mappings': t.code_mappings,
+                        'verification_methods': t.verification_methods,
+                        'verification_status': t.verification_status,
+                        'verified_at': t.verified_at,
+                        'verification_coverage': t.verification_coverage
                     }
                     for t in p.tasks
                 ]

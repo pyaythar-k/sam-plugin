@@ -22,6 +22,35 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 
+# Observability integration
+try:
+    from skills.shared.observability import (
+        get_logger,
+        get_metrics,
+        observe,
+        timed,
+        observe_context,
+    )
+    HAS_OBSERVABILITY = True
+except ImportError:
+    HAS_OBSERVABILITY = False
+    # Fallback no-op decorators
+    def observe(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    def timed(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    class observe_context:
+        def __init__(self, *args, **kwargs):
+            pass
+        def __enter__(self):
+            return self
+        def __exit__(self, *args):
+            pass
+
 
 @dataclass
 class Task:
@@ -38,6 +67,8 @@ class Task:
     dependencies: List[str] = field(default_factory=list)
     story_mapping: Optional[str] = None
     completion_note: Optional[str] = None
+    acceptance_test_status: Optional[str] = None  # NEW: "pending", "passed", "failed"
+    acceptance_test_path: Optional[str] = None  # NEW: Path to acceptance test file
 
 
 @dataclass
@@ -88,7 +119,9 @@ class TaskRegistry:
                             "parent_task_id": t.parent_task_id,
                             "dependencies": t.dependencies,
                             "story_mapping": t.story_mapping,
-                            "completion_note": t.completion_note
+                            "completion_note": t.completion_note,
+                            "acceptance_test_status": t.acceptance_test_status,
+                            "acceptance_test_path": t.acceptance_test_path
                         }
                         for t in p.tasks
                     ]
@@ -117,6 +150,9 @@ class SpecParser:
         self.content = ""
         self.lines: List[str] = []
         self.project_type = "unknown"  # NEW: Store project type
+
+        # Initialize logger if observability is available
+        self.logger = get_logger("sam-specs", feature_id=feature_id) if HAS_OBSERVABILITY else None
 
     def _get_project_type(self, feature_dir: Path) -> str:
         """
@@ -151,14 +187,21 @@ class SpecParser:
         # Default to full-stack if unknown
         return "full-stack"
 
+    @observe()
     def parse(self) -> TaskRegistry:
         """Parse the specification file and generate task registry."""
+        if self.logger:
+            self.logger.info("Parsing specification file", file=str(self.spec_file))
+
         self.content = self.spec_file.read_text()
         self.lines = self.content.split('\n')
 
         # Get project type (NEW)
         feature_dir = self.spec_file.parent
         self.project_type = self._get_project_type(feature_dir)
+
+        if self.logger:
+            self.logger.debug("Project type detected", project_type=self.project_type)
 
         registry = TaskRegistry()
         registry.metadata = {
@@ -184,6 +227,16 @@ class SpecParser:
 
         registry.metadata["total_tasks"] = str(total_tasks)
         registry.metadata["completed_tasks"] = str(completed_tasks)
+
+        # Log parsing results
+        if self.logger:
+            self.logger.info(
+                "Specification parsed successfully",
+                total_tasks=total_tasks,
+                completed_tasks=completed_tasks,
+                phases=len(phases),
+                project_type=self.project_type
+            )
 
         # Set initial checkpoint
         if completed_tasks > 0:
@@ -310,8 +363,22 @@ class SpecParser:
         return None
 
 
+@timed("spec_parse_duration")
 def main():
     """CLI entry point."""
+    # Initialize observability
+    logger = None
+    metrics = None
+    if HAS_OBSERVABILITY:
+        from skills.shared.observability import initialize, get_logger, get_metrics
+        try:
+            initialize()
+            logger = get_logger("sam-specs")
+            metrics = get_metrics("sam-specs")
+            metrics.increment("spec_parse_invocations")
+        except Exception:
+            pass  # Observability optional
+
     if len(sys.argv) < 2:
         print("Usage: python3 spec_parser.py <feature_dir>")
         print("Example: python3 spec_parser.py .sam/001_user_auth")
@@ -321,6 +388,8 @@ def main():
 
     if not feature_dir.exists():
         print(f"Error: Feature directory not found: {feature_dir}")
+        if logger:
+            logger.error("Feature directory not found", path=str(feature_dir))
         sys.exit(1)
 
     # Find technical spec
@@ -328,6 +397,8 @@ def main():
 
     if not spec_file.exists():
         print(f"Error: TECHNICAL_SPEC.md not found in {feature_dir}")
+        if logger:
+            logger.error("TECHNICAL_SPEC.md not found", feature_dir=str(feature_dir))
         sys.exit(1)
 
     # Extract feature info
@@ -339,24 +410,47 @@ def main():
     feature_name = name_match.group(1).strip() if name_match else feature_id.replace('_', ' ').title()
 
     # Parse specification
-    print(f"Parsing specification: {spec_file}")
-    parser = SpecParser(spec_file, feature_id, feature_name)
-    registry = parser.parse()
+    print(f"Parsing specification: {spec_file}")  # Backward compatible - print still works
+
+    # Use observe_context for the parse operation
+    with observe_context("parse_spec", "sam-specs") if HAS_OBSERVABILITY else nullcontext():
+        parser = SpecParser(spec_file, feature_id, feature_name)
+        registry = parser.parse()
 
     # Write TASKS.json
     output_file = feature_dir / "TASKS.json"
     with open(output_file, 'w') as f:
         json.dump(registry.to_dict(), f, indent=2)
 
-    print(f"✓ Generated TASKS.json")
+    print(f"✓ Generated TASKS.json")  # Backward compatible
     print(f"  Features: {registry.metadata['feature_name']}")
     print(f"  Total Tasks: {registry.metadata['total_tasks']}")
     print(f"  Completed: {registry.metadata['completed_tasks']}")
     print(f"  Phases: {len(registry.phases)}")
-    print(f"  Project Type: {registry.metadata.get('project_type', 'unknown')}")  # NEW
+    print(f"  Project Type: {registry.metadata.get('project_type', 'unknown')}")
 
     for phase in registry.phases:
         print(f"    Phase {phase.phase_id} ({phase.phase_name}): {len(phase.tasks)} tasks [{phase.status}]")
+
+    # Log completion
+    if logger:
+        logger.info(
+            "TASKS.json generated successfully",
+            feature_id=feature_id,
+            total_tasks=registry.metadata['total_tasks'],
+            phases=len(registry.phases)
+        )
+    if metrics:
+        metrics.increment("spec_parse_success")
+        metrics.gauge("tasks_parsed", int(registry.metadata['total_tasks']))
+
+
+# Null context for when observability is not available
+class nullcontext:
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        pass
 
 
 if __name__ == "__main__":

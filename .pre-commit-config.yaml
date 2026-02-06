@@ -1,0 +1,167 @@
+# SAM Quality Gates - Pre-commit Hooks Configuration
+# Runs quality checks locally before committing code
+# Part of Phase 3: Integration & Automation
+#
+# Installation:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Usage:
+#   # Hooks run automatically on git commit
+#   # Run manually on all files:
+#   pre-commit run --all-files
+#   # Run on specific files:
+#   pre-commit run --files path/to/file
+
+default_language_version:
+  python: python3
+
+# Hook definitions
+repos:
+  # Pre-commit hooks repository (built-in hooks)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # General file checks
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+      - id: end-of-file-fixer
+        name: Fix end of files
+      - id: check-yaml
+        name: Check YAML syntax
+      - id: check-json
+        name: Check JSON syntax
+      - id: check-toml
+        name: Check TOML syntax
+      - id: check-added-large-files
+        name: Check for large files
+        args: ['--maxkb=1000']
+
+  # JavaScript/TypeScript specific hooks
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        name: Format with Prettier
+        types_or: [javascript, jsx, ts, tsx, json, yaml, markdown]
+        # Run prettier on staged files
+        # Use .prettierrc for configuration
+
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.0.0
+    hooks:
+      - id: eslint
+        name: Lint with ESLint
+        types_or: [javascript, jsx, ts, tsx]
+        args: ['--fix', '--max-warnings=0']
+        # Use .eslintrc for configuration
+
+  # Python specific hooks
+  - repo: https://github.com/psf/black
+    rev: 24.1.1
+    hooks:
+      - id: black
+        name: Format Python with Black
+        language_version: python3
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        name: Lint Python with Flake8
+        args: ['--max-line-length=100', '--ignore=E203,W503']
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        name: Security check with Bandit
+        args: ['-c', 'pyproject.toml']
+        additional_dependencies: ['bandit[toml]']
+
+  # Local SAM-specific hooks
+  - repo: local
+    hooks:
+      # SAM Lint and Build Test (comprehensive)
+      - id: sam-quality-gate
+        name: SAM Quality Gate
+        entry: ./skills/sam-develop/scripts/lint_build_test.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+        # Run only on explicit trigger (slow)
+        stages: [manual]
+
+      # SAM Coverage Check (fast fail on low coverage)
+      - id: sam-coverage-check
+        name: SAM Coverage Check
+        entry: bash -c 'python3 skills/sam-develop/scripts/coverage_enforcer.py . --check --threshold 80'
+        language: system
+        pass_filenames: false
+        always_run: false
+        stages: [pre-push]
+
+      # SAM Contract Test Verification (for API changes)
+      - id: sam-contract-verify
+        name: SAM Contract Test Verification
+        entry: bash -c 'python3 skills/sam-develop/scripts/contract_test_runner.py . --verify-contracts'
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^(src/.*\.(ts|js)|api/.*\.(ts|js)|.*openapi\.yaml)$
+        stages: [pre-push]
+
+      # Type checking
+      - id: sam-type-check
+        name: SAM Type Check
+        entry: npm run type-check
+        language: system
+        pass_filenames: false
+        types_or: [javascript, jsx, ts, tsx]
+
+      # Build verification
+      - id: sam-build-check
+        name: SAM Build Check
+        entry: npm run build
+        language: system
+        pass_filenames: false
+        always_run: false
+        files: ^(src/|lib/|.*\.(ts|js))$
+
+      # Check for TODO/FIXME comments
+      - id: sam-todo-check
+        name: Check for TODO/FIXME
+        entry: bash -c 'git diff --cached --name-only | xargs grep -l "TODO\|FIXME" || true'
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Verify TASKS.json is valid (if modified)
+      - id: sam-tasks-json-verify
+        name: Verify TASKS.json
+        entry: bash -c 'for f in $(git diff --cached --name-only | grep "TASKS.json"); do python3 -m json.tool "$f" > /dev/null && echo "Valid: $f" || exit 1; done'
+        language: system
+        pass_filenames: false
+        files: ^.*TASKS\.json$
+
+      # Check for console.log statements (warn in production code)
+      - id: sam-no-console-log
+        name: Check for console.log
+        entry: bash -c 'git diff --cached --name-only | grep -E "\.(ts|js|tsx|jsx)$" | xargs grep -H "console\.log" || true'
+        language: system
+        pass_filenames: false
+        files: \.(ts|js|tsx|jsx)$
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

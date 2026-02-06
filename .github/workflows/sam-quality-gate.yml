@@ -1,0 +1,358 @@
+# SAM Quality Gates - GitHub Actions Workflow
+# Runs comprehensive quality checks on every push and pull request
+# Part of Phase 3: Integration & Automation
+
+name: SAM Quality Gates
+
+on:
+  push:
+    branches: [main, develop, staging, production]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.x'
+  COVERAGE_THRESHOLD: 80
+  CI: true
+
+jobs:
+  # Job 1: Quick quality checks (fast feedback)
+  quality-check:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.deps.outputs.cachekey }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Get cache key
+        id: deps
+        run: echo "cachekey=node-deps-${{ hashFiles('**/package-lock.json') }}" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint -- --format json --output-file lint-results.json || true
+        continue-on-error: true
+
+      - name: Run type checking
+        run: npm run type-check || true
+        continue-on-error: true
+
+      - name: Run build
+        run: npm run build || true
+        continue-on-error: true
+
+      - name: Upload lint results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-results
+          path: lint-results.json
+          retention-days: 7
+
+  # Job 2: Run unit tests with coverage
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: quality-check
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm test -- --coverage --coverageReporters=json --coverageReporters=text --coverageReporters=lcov
+
+      - name: Generate coverage badge
+        run: |
+          python3 skills/sam-develop/scripts/coverage_enforcer.py . --badge > coverage-badge.svg
+        continue-on-error: true
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-node-${{ matrix.node-version }}
+          path: |
+            coverage/
+            coverage-badge.svg
+          retention-days: 7
+
+  # Job 3: Coverage enforcement
+  coverage-check:
+    name: Coverage Enforcement
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-report-*
+          path: coverage/
+
+      - name: Run coverage enforcer
+        run: |
+          python3 skills/sam-develop/scripts/coverage_enforcer.py . \
+            --threshold ${{ env.COVERAGE_THRESHOLD }} \
+            --json-output > coverage-result.json
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE_PASSED=$(jq -r '.passed // false' coverage-result.json)
+          if [ "$COVERAGE_PASSED" != "true" ]; then
+            echo "Coverage below threshold"
+            jq '.' coverage-result.json
+            exit 1
+          fi
+          echo "Coverage threshold met"
+
+      - name: Upload coverage result
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-result
+          path: coverage-result.json
+          retention-days: 30
+
+  # Job 4: Contract tests
+  contract-tests:
+    name: Contract Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run contract test runner
+        run: |
+          python3 skills/sam-develop/scripts/contract_test_runner.py . --check
+        continue-on-error: true
+
+      - name: Upload contract test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-test-results
+          path: contract-test-results.json
+          retention-days: 7
+
+  # Job 5: Security tests
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: quality-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security audit
+        run: npm audit --audit-level=moderate --json > npm-audit.json || true
+        continue-on-error: true
+
+      - name: Run SAM security tests
+        run: |
+          python3 skills/sam-specs/scripts/security_test_generator.py . --verify
+        continue-on-error: true
+
+      - name: Upload security results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results
+          path: |
+            npm-audit.json
+            security-test-results.json
+          retention-days: 30
+
+  # Job 6: E2E tests (optional, slower)
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [unit-tests, coverage-check]
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload E2E test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  # Job 7: Comprehensive quality gate
+  quality-gate:
+    name: Quality Gate (Final)
+    runs-on: ubuntu-latest
+    needs: [quality-check, unit-tests, coverage-check, contract-tests, security-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results/
+
+      - name: Run comprehensive quality gate
+        run: |
+          ./skills/sam-develop/scripts/lint_build_test.sh --json-output > quality-gate-final.json
+        continue-on-error: true
+
+      - name: Generate CI status report
+        run: |
+          python3 skills/sam-develop/scripts/ci_helpers.py \
+            --generate-report \
+            --input-dir all-results/ \
+            --output ci-status-report.md
+
+      - name: Upload final status report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-status-report
+          path: ci-status-report.md
+          retention-days: 90
+
+      - name: Check quality gate status
+        run: |
+          STATUS=$(jq -r '.overall // "failed"' quality-gate-final.json)
+          if [ "$STATUS" != "passed" ]; then
+            echo "Quality gate failed"
+            jq '.' quality-gate-final.json
+            exit 1
+          fi
+          echo "All quality gates passed"
+
+      - name: Set job outputs
+        id: result
+        run: |
+          echo "status=$(jq -r '.overall' quality-gate-final.json)" >> $GITHUB_OUTPUT
+          echo "timestamp=$(jq -r '.timestamp' quality-gate-final.json)" >> $GITHUB_OUTPUT
+
+    outputs:
+      status: ${{ steps.result.outputs.status }}
+      timestamp: ${{ steps.result.outputs.timestamp }}
+
+  # Job 8: Update TASKS.json checkpoint (for .sam features)
+  update-checkpoint:
+    name: Update Checkpoint
+    runs-on: ubuntu-latest
+    needs: quality-gate
+    if: always() && hashFiles('.sam/**/TASKS.json') != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Update TASKS.json with CI metadata
+        run: |
+          # Find all TASKS.json files
+          find .sam -name "TASKS.json" -type f | while read tasks_file; do
+            feature_dir=$(dirname "$tasks_file")
+            echo "Updating checkpoint for: $feature_dir"
+
+            python3 skills/sam-develop/scripts/ci_helpers.py \
+              --update-checkpoint \
+              --feature-dir "$feature_dir" \
+              --ci-environment "github" \
+              --job-id "${{ github.run_id }}" \
+              --workflow "${{ github.workflow }}" \
+              --status "${{ needs.quality-gate.outputs.status }}"
+          done
+        continue-on-error: true
+
+      - name: Commit TASKS.json updates
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .sam/**/TASKS.json || true
+          git diff --staged --quiet || git commit -m "chore: update TASKS.json checkpoint from CI [skip ci]"
+          git push || echo "No changes to commit"
+        continue-on-error: true

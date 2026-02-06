@@ -1,0 +1,133 @@
+# Global context variables shared across all features
+# These variables can be referenced in any template using {{VARIABLE}} syntax
+# Feature-specific CONTEXT.yaml files can override these values
+
+version: "1.0"
+
+# Application-wide settings
+application:
+  name: "{{APP_NAME}}"
+  environment: "{{ENVIRONMENT}}"  # development, staging, production
+  domain: "{{DOMAIN}}"
+  api_url: "{{API_URL}}"
+  version: "{{APP_VERSION}}"
+
+# Technology stack versions
+stack:
+  node_version: "{{NODE_VERSION}}"
+  python_version: "{{PYTHON_VERSION}}"
+  framework_version: "{{FRAMEWORK_VERSION}}"
+  typescript_version: "{{TYPESCRIPT_VERSION}}"
+
+# Database configuration
+database:
+  type: "{{DATABASE_TYPE}}"  # postgresql, mysql, mongodb, supabase
+  host: "{{DB_HOST}}"
+  port: "{{DB_PORT}}"
+  database: "{{DB_NAME}}"
+  pool_size: "{{DB_POOL_SIZE}}"
+  ssl_enabled: "{{DB_SSL_ENABLED}}"
+
+# Authentication
+auth:
+  provider: "{{AUTH_PROVIDER}}"  # auth0, clerk, supabase, custom
+  token_expiry: "{{TOKEN_EXPIRY}}"
+  refresh_enabled: "{{REFRESH_ENABLED}}"
+  session_timeout: "{{SESSION_TIMEOUT}}"
+  mfa_enabled: "{{MFA_ENABLED}}"
+
+# External services
+services:
+  email:
+    provider: "{{EMAIL_PROVIDER}}"  # sendgrid, mailgun, ses, resend
+    from_address: "{{EMAIL_FROM}}"
+    from_name: "{{EMAIL_FROM_NAME}}"
+    reply_to: "{{EMAIL_REPLY_TO}}"
+
+  storage:
+    provider: "{{STORAGE_PROVIDER}}"  # s3, gcs, supabase, azure
+    bucket: "{{STORAGE_BUCKET}}"
+    region: "{{STORAGE_REGION}}"
+    cdn_url: "{{CDN_URL}}"
+
+  cache:
+    provider: "{{CACHE_PROVIDER}}"  # redis, memcached, memory
+    ttl: "{{CACHE_TTL}}"
+    max_size: "{{CACHE_MAX_SIZE}}"
+
+  queue:
+    provider: "{{QUEUE_PROVIDER}}"  # sqs, rabbitmq, redis, bull
+    max_retries: "{{QUEUE_MAX_RETRIES}}"
+    timeout: "{{QUEUE_TIMEOUT}}"
+
+# Feature flags
+flags:
+  enable_analytics: "{{ENABLE_ANALYTICS}}"
+  enable_tracking: "{{ENABLE_TRACKING}}"
+  enable_notifications: "{{ENABLE_NOTIFICATIONS}}"
+  enable_auditing: "{{ENABLE_AUDITING}}"
+  enable_rate_limiting: "{{ENABLE_RATE_LIMITING}}"
+  enable_caching: "{{ENABLE_CACHING}}"
+
+# Testing configuration
+testing:
+  default_framework: "{{TEST_FRAMEWORK}}"  # jest, cucumber, pytest
+  coverage_target: "{{COVERAGE_TARGET}}"
+  e2e_framework: "{{E2E_FRAMEWORK}}"  # playwright, cypress
+  mock_services: "{{MOCK_SERVICES}}"
+
+# API configuration
+api:
+  rate_limit:
+    enabled: "{{RATE_LIMIT_ENABLED}}"
+    requests_per_minute: "{{RATE_LIMIT_RPM}}"
+    burst_size: "{{RATE_LIMIT_BURST}}"
+
+  cors:
+    enabled: "{{CORS_ENABLED}}"
+    origins: "{{CORS_ORIGINS}}"
+    methods: "{{CORS_METHODS}}"
+    credentials: "{{CORS_CREDENTIALS}}"
+
+  pagination:
+    default_page_size: "{{PAGINATION_DEFAULT_SIZE}}"
+    max_page_size: "{{PAGINATION_MAX_SIZE}}"
+
+# Security settings
+security:
+  enable_csrf: "{{CSRF_ENABLED}}"
+  enable_helmet: "{{HELMET_ENABLED}}"
+  enable_csp: "{{CSP_ENABLED}}"
+  password_policy:
+    min_length: "{{PASSWORD_MIN_LENGTH}}"
+    require_uppercase: "{{PASSWORD_REQUIRE_UPPERCASE}}"
+    require_numbers: "{{PASSWORD_REQUIRE_NUMBERS}}"
+    require_special_chars: "{{PASSWORD_REQUIRE_SPECIAL}}"
+
+# Logging configuration
+logging:
+  level: "{{LOG_LEVEL}}"  # debug, info, warn, error
+  format: "{{LOG_FORMAT}}"  # json, text
+  destination: "{{LOG_DESTINATION}}"  # console, file, external
+  retention_days: "{{LOG_RETENTION_DAYS}}"
+
+# Monitoring configuration
+monitoring:
+  provider: "{{MONITORING_PROVIDER}}"  # datadog, newrelic, prometheus
+  apm_enabled: "{{APM_ENABLED}}"
+  error_tracking: "{{ERROR_TRACKING_ENABLED}}"
+  performance_tracking: "{{PERFORMANCE_TRACKING_ENABLED}}"
+
+# Deployment configuration
+deployment:
+  platform: "{{DEPLOYMENT_PLATFORM}}"  # vercel, netlify, aws, gcp, azure
+  region: "{{DEPLOYMENT_REGION}}"
+  auto_scaling: "{{AUTO_SCALING_ENABLED}}"
+  health_check_path: "{{HEALTH_CHECK_PATH}}"
+
+# Internationalization
+i18n:
+  default_locale: "{{DEFAULT_LOCALE}}"
+  supported_locales: "{{SUPPORTED_LOCALES}}"
+  currency: "{{DEFAULT_CURRENCY}}"
+  timezone: "{{DEFAULT_TIMEZONE}}"

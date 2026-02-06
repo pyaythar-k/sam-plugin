@@ -1,0 +1,213 @@
+# SAM Observability Configuration Template
+#
+# This template provides a starting point for configuring observability
+# in your SAM workflow. Copy this file to your project and customize as needed.
+#
+# Usage:
+#   1. Copy this template to your project root or config/ directory
+#   2. Rename to observability.yaml
+#   3. Customize settings for your needs
+#   4. Initialize with: python3 -m skills.sam_observe.cli init --config observability.yaml
+
+version: "1.0"
+
+# ----------------------------------------------------------------------------
+# Logging Configuration
+# ----------------------------------------------------------------------------
+logging:
+  # Default log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  # DEBUG: Detailed diagnostic information
+  # INFO: General informational messages (default)
+  # WARNING: Warning messages for potentially harmful situations
+  # ERROR: Error messages for serious issues
+  # CRITICAL: Critical, urgent messages
+  level: INFO
+
+  # Output format: json or text
+  # json: Structured JSON format for machine parsing
+  # text: Human-readable text format
+  format: json
+
+  # Output destinations (can have multiple)
+  outputs:
+    # Console output (terminal)
+    - type: console
+      enabled: true
+      format: text  # text for human-readable terminal output
+      level: INFO   # Can be more verbose than file output
+
+    # File output (persistent logs)
+    - type: file
+      enabled: true
+      path: .sam/logs/sam.log
+      format: json  # JSON for parsing and analysis
+      level: DEBUG  # More detailed in file
+      rotation:
+        max_size_mb: 100  # Rotate log files after this size
+        max_files: 10     # Keep this many rotated files
+
+  # Component-specific log levels
+  # Override default level for specific components
+  components:
+    sam-specs: INFO
+    sam-develop: DEBUG
+    sam-status: INFO
+    sam-validate: INFO
+    sam-stories: INFO
+    sam-discover: INFO
+    sam-observe: INFO
+
+# ----------------------------------------------------------------------------
+# Metrics Configuration
+# ----------------------------------------------------------------------------
+metrics:
+  # Enable/disable metrics collection
+  enabled: true
+
+  # Storage type: file or memory
+  # file: Persist metrics to disk
+  # memory: Keep in memory only (lost on restart)
+  storage: file
+
+  storage_options:
+    # Directory for metrics storage
+    path: .sam/metrics/
+
+    # Retention period in days (for file-based storage)
+    retention_days: 30
+
+  # Types of metrics to collect
+  collect:
+    - timing    # Operation durations (histograms)
+    - counters  # Event counts
+    - gauges    # Current values
+    # - resource  # CPU/memory usage (requires psutil package)
+
+# ----------------------------------------------------------------------------
+# Tracing Configuration
+# ----------------------------------------------------------------------------
+tracing:
+  # Enable/disable distributed tracing
+  enabled: true
+
+  # Sampling rate (0.0 to 1.0)
+  # 1.0 = Capture all traces
+  # 0.1 = Capture 10% of traces
+  # Use < 1.0 for high-traffic scenarios
+  sample_rate: 1.0
+
+  storage:
+    # Storage type: file or memory
+    type: file
+    # Directory for trace storage
+    path: .sam/traces/
+
+  # Maximum spans per trace (prevent memory issues)
+  max_spans_per_trace: 1000
+
+# ----------------------------------------------------------------------------
+# Error Tracking Configuration
+# ----------------------------------------------------------------------------
+errors:
+  # Enable/disable error tracking
+  enabled: true
+
+  storage:
+    # Directory for error storage
+    path: .sam/errors/
+    # Retention period in days
+    retention_days: 90
+
+  # Maximum stack frames to capture
+  max_stack_frames: 50
+
+# ----------------------------------------------------------------------------
+# Feature Flags
+# ----------------------------------------------------------------------------
+features:
+  # Maintain backward compatibility
+  # When true: Preserves existing print() output alongside logging
+  # When false: Only structured logging output
+  backward_compatible: true
+
+  # Optional integrations (requires additional packages)
+  # Prometheus metrics export
+  prometheus_integration: false  # Requires: prometheus_client
+
+  # Sentry error tracking
+  sentry_integration: false      # Requires: sentry-sdk
+  # sentry_dsn: "your-sentry-dsn-here"
+
+  # OpenTelemetry tracing
+  opentelemetry_integration: false  # Requires: opentelemetry-sdk
+
+# ----------------------------------------------------------------------------
+# Environment Variable Overrides
+# ----------------------------------------------------------------------------
+# Any setting can be overridden using environment variables.
+# Format: SAM_OBS_{SECTION}__{KEY}=value
+#
+# Examples:
+#   # Change log level to DEBUG
+#   export SAM_OBS_LOGGING__LEVEL=DEBUG
+#
+#   # Disable metrics collection
+#   export SAM_OBS_METRICS__ENABLED=false
+#
+#   # Set tracing sample rate to 10%
+#   export SAM_OBS_TRACING__SAMPLE_RATE=0.1
+#
+#   # Change log file path
+#   export SAM_OBS_LOGGING__OUTPUTS__1__PATH=/var/log/sam.log
+#
+# Note: Array indices use 0-based numbering for outputs array
+
+# ----------------------------------------------------------------------------
+# Advanced: Component-Specific Configuration
+# ----------------------------------------------------------------------------
+# For fine-grained control, you can configure individual components:
+
+# Advanced logging example:
+# logging:
+#   outputs:
+#     - type: console
+#       enabled: true
+#       format: text
+#       # Filter console output to INFO and above only
+#       level: INFO
+#     - type: file
+#       enabled: true
+#       path: .sam/logs/sam.log
+#       format: json
+#       # File gets DEBUG level and above
+#       level: DEBUG
+#       rotation:
+#         max_size_mb: 100
+#         max_files: 10
+#         # Rotate daily
+#         interval: daily
+#         # Keep backups
+#         backup_count: 30
+
+# ----------------------------------------------------------------------------
+# Tips for Different Use Cases
+# ----------------------------------------------------------------------------
+#
+# Development:
+#   logging.level: DEBUG
+#   tracing.sample_rate: 1.0
+#   metrics.collect: [timing, counters, gauges, resource]
+#
+# Production (low traffic):
+#   logging.level: INFO
+#   tracing.sample_rate: 1.0
+#   metrics.collect: [timing, counters]
+#
+# Production (high traffic):
+#   logging.level: WARNING
+#   tracing.sample_rate: 0.1
+#   metrics.collect: [counters]
+#
+# Debugging specific component:
+#   logging.components.sam-develop: DEBUG
+#   logging.components.sam-specs: INFO

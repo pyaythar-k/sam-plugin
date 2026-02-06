@@ -226,30 +226,102 @@ Run mandatory checks after each task completion:
 ./skills/sam-develop/scripts/lint_build_test.sh
 ```
 
+**Contract Test Verification (NEW)**:
+For API endpoints, also run contract tests:
+```bash
+# If contract tests exist
+python3 skills/sam-specs/scripts/contract_test_generator.py .sam/{feature} --verify
+
+# Or run directly
+npm test -- tests/contract/contract.test.ts
+```
+
 **If ANY check fails**:
 - Fix the failure
 - Re-run the failed check
 - DO NOT mark task as `[x]` until all checks pass
 - DO NOT proceed to next task until current task passes
 
-#### 3.4 Update Checkboxes and Task Registry (NEW)
+**Impact Analysis Check (NEW)**:
+Before implementing changes to tasks or stories:
+```bash
+# Check what's affected
+python3 skills/sam-specs/scripts/impact_analyzer.py .sam/{feature} --task {task_id}
 
-**After each task completes successfully, you MUST update BOTH files:**
+# Review the impact report and recommendations
+# Proceed if risk level is acceptable
+```
+
+#### 3.4 Shift-Left Verification (NEW - BMAD/SpecKit Enhancement)
+
+**CRITICAL**: After each task completes, BEFORE marking as `[x]`, verify acceptance criteria.
+
+**Why Shift-Left?**
+- Traditional: Verify at Phase 4 end (after all tasks complete)
+- Shift-Left: Verify EACH task immediately after implementation
+- Benefit: Catch issues early, no accumulated technical debt
+
+**Verification Steps:**
+
+1. **Run Acceptance Tests for This Task**:
+   ```bash
+   # If acceptance tests exist
+   npm test -- tests/acceptance/test_{feature_name}_acceptance.ts -t "Task {task_id}"
+
+   # OR run scenario-based tests
+   npm test -- tests/jest/{feature_name}.test.ts -t "{task_title}"
+   ```
+
+2. **Verify Acceptance Criteria Pass**:
+   - Check that all scenarios from EXECUTABLE_SPEC.yaml pass
+   - Verify implementation matches specification
+   - Confirm no blocking issues
+
+3. **Update TASKS.json with Acceptance Test Status**:
+   ```bash
+   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} \
+     --status completed \
+     --acceptance-test passed
+   ```
+
+4. **Only Then Mark Task as `[x]`**:
+   - Read TECHNICAL_SPEC.md
+   - Update checkbox: `[ ]` → `[x]`
+   - Add completion note with acceptance test status
+   ```markdown
+   - [x] Implement POST /api/users
+     - Maps to: Story 001 (AC: User can sign up)
+     - Completed: 2025-02-06
+     - Acceptance Test: ✓ PASSED
+   ```
+
+**If Acceptance Tests Fail**:
+1. Do NOT mark task as `[x]`
+2. Create fix task checkbox
+3. Return to Section 3.1
+4. Re-run verification after fix
+
+#### 3.5 Update Checkboxes and Task Registry (UPDATED)
+
+**After each task completes AND passes acceptance tests, update BOTH files:**
 
 1. **Update TECHNICAL_SPEC.md**:
    - Read the file
    - Locate the specific checkbox
    - Update: `[ ]` → `[x]`
-   - Add completion note with timestamp
+   - Add completion note with timestamp and acceptance test status
    ```markdown
    - [x] Implement POST /api/users
      - Maps to: Story 001 (AC: User can sign up)
      - Completed: 2025-02-06
+     - Acceptance Test: ✓ PASSED
    ```
 
 2. **Update TASKS.json** (CRITICAL for checkpoint/resume):
    ```bash
-   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} --status completed
+   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} \
+     --status completed \
+     --acceptance-test passed
    ```
 
 **This dual update ensures:**
@@ -257,26 +329,43 @@ Run mandatory checks after each task completion:
 - Fast state tracking in registry
 - Resume capability if interrupted
 - Accurate coverage reporting
+- Acceptance test status tracking
 
-#### 3.5 MANDATORY QUALITY GATE CHECKPOINT
+#### 3.6 MANDATORY QUALITY GATE CHECKPOINT
 
 **CRITICAL**: Before EVERY loop iteration, you MUST:
 
-1. **Run ALL Quality Checks**:
+1. **Run ALL Quality Checks** (with automatic persistence):
    ```bash
-   ./skills/sam-develop/scripts/lint_build_test.sh
+   ./skills/sam-develop/scripts/lint_build_test.sh --json-output > quality_gate_result.json
    ```
 
 2. **Verify Check Results**:
    - If ALL pass → Proceed to step 3
    - If ANY fails → Fix, re-run, DO NOT proceed until ALL pass
 
-3. **Update TASKS.json checkpoint with quality gate results**:
+3. **Automatically Update TASKS.json checkpoint** (NEW - JSON output):
    ```bash
-   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} --status completed
+   # The --json-output flag generates machine-readable results:
+   # {
+   #   "quality_gate": {
+   #     "linting": "passed",
+   #     "type_check": "passed",
+   #     "build": "passed",
+   #     "tests": "passed",
+   #     "e2e_tests": "passed",
+   #     "overall": "passed",
+   #     "timestamp": "2025-02-06T14:30:00Z"
+   #   }
+   # }
+
+   # Update checkpoint with quality gate results:
+   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} \
+     --status completed \
+     --quality-gate quality_gate_result.json
    ```
 
-   Then manually update checkpoint with quality gate results:
+   This automatically populates:
    ```json
    {
      "checkpoint": {
@@ -285,7 +374,9 @@ Run mandatory checks after each task completion:
          "linting": "passed",
          "type_check": "passed",
          "build": "passed",
-         "tests": "passed"
+         "tests": "passed",
+         "e2e_tests": "passed",
+         "overall": "passed"
        }
      }
    }
@@ -301,14 +392,55 @@ Run mandatory checks after each task completion:
 - ✅ Type Checking: PASSED (0 type errors)
 - ✅ Build: PASSED (successful compilation)
 - ✅ Unit Tests: PASSED (all tests passing)
+- ✅ Coverage: 80%+ (NEW - automatically enforced)
 - ✅ E2E Tests: PASSED (or N/A if not configured)
+- ✅ Security Tests: PASSED (NEW - OWASP Top 10)
+- ✅ Contract Tests: PASSED (if API changes made) [NEW]
+- ✅ Impact Analysis: REVIEWED (if modifying existing tasks) [NEW]
+- ✅ Deadlock Check: PASSED (no circular dependencies) [NEW]
+
+**NEW: Deadlock Detection Before Parallel Execution**:
+Before spawning parallel subagents, check for circular dependencies:
+```bash
+python3 skills/sam-specs/scripts/impact_analyzer.py .sam/{feature_id} --check-cycles
+```
+
+If cycles are detected:
+- ❌ DO NOT spawn parallel subagents
+- 🔴 Report the circular dependency
+- 📋 Follow resolution suggestions to break the cycle
+- ✅ Re-check after resolving
+
+**NEW: Rollback Capability for Failed Parallel Batches**:
+
+Before executing a batch of parallel tasks, create a rollback checkpoint:
+```bash
+python3 skills/sam-develop/scripts/rollback_manager.py .sam/{feature_id} \
+  --create-checkpoint \
+  --description "Parallel batch: tasks 2.1.1, 2.1.2, 2.1.3" \
+  --tasks "2.1.1,2.1.2,2.1.3"
+```
+
+If the parallel batch fails partially or completely:
+```bash
+# Rollback to the checkpoint
+python3 skills/sam-develop/scripts/rollback_manager.py .sam/{feature_id} --rollback
+
+# Or list available checkpoints first
+python3 skills/sam-develop/scripts/rollback_manager.py .sam/{feature_id} --list-checkpoints
+```
+
+This enables:
+- Safe parallel execution with automatic recovery
+- Git-based rollback to known-good state
+- Checkpoint tracking in TASKS.json for resume capability
 
 **Quality gate tracking in TASKS.json enables**:
 - Resume from last known good state
 - Audit trail of quality checks
 - Debug failed iterations by examining checkpoint history
 
-#### 3.6 Check Loop Condition (UPDATED)
+#### 3.7 Check Loop Condition (UPDATED)
 
 **After each iteration, explicitly check via TASKS.json**:
 ```bash
@@ -331,7 +463,7 @@ python3 skills/sam-develop/scripts/task_registry.py checkpoint .sam/{feature_id}
 - Current phase
 - Active tasks (if any)
 
-#### 3.7 Checkpoint and Resume Capability (NEW)
+#### 3.8 Checkpoint and Resume Capability (NEW)
 
 **Enhanced TASKS.json checkpoint schema**:
 ```json
@@ -377,7 +509,7 @@ Next Tasks (Phase 2):
   - 2.2.1: Implement user service
 ```
 
-#### 3.8 Handle Failures
+#### 3.9 Handle Failures
 
 **For failed quality gates**:
 - Create specific fix task
@@ -392,7 +524,7 @@ Next Tasks (Phase 2):
 - PAUSE and ask user for guidance
 - Do NOT exit the loop
 
-#### 3.9 Loop Back Instruction
+#### 3.10 Loop Back Instruction
 
 **Decision**:
 - If `coverage_percent == 100`: All tasks complete → EXIT loop and proceed to Section 4
@@ -818,6 +950,83 @@ Ready for:
 • Pull request
 • Deployment
 ```
+
+## CI/CD Integration (Phase 3)
+
+### Quality Gates in CI/CD
+
+The SAM workflow integrates with CI/CD platforms for automated quality enforcement:
+
+**GitHub Actions**: `.github/workflows/sam-quality-gate.yml`
+**GitLab CI**: `.gitlab-ci.yml`
+
+### CI/CD Scripts
+
+#### ci_helpers.py
+
+Utilities for CI environment detection and artifact management:
+
+```bash
+# Detect CI environment
+python3 skills/sam-develop/scripts/ci_helpers.py --detect-env
+
+# Generate CI status report
+python3 skills/sam-develop/scripts/ci_helpers.py \
+  --generate-report \
+  --input-dir results/ \
+  --output report.md
+
+# Update TASKS.json with CI metadata
+python3 skills/sam-develop/scripts/ci_helpers.py \
+  --update-checkpoint \
+  --feature-dir .sam/{feature} \
+  --ci-environment github \
+  --job-id ${{ github.run_id }} \
+  --workflow ${{ github.workflow }} \
+  --status passed
+```
+
+#### contract_test_runner.py
+
+Automatically execute contract tests during quality gates:
+
+```bash
+# Run contract tests
+python3 skills/sam-develop/scripts/contract_test_runner.py . --check
+
+# Verify contracts
+python3 skills/sam-develop/scripts/contract_test_runner.py . --verify-contracts
+
+# Generate report
+python3 skills/sam-develop/scripts/contract_test_runner.py . --report
+```
+
+### Pre-commit Hooks
+
+Local quality enforcement via pre-commit hooks:
+
+```bash
+# Install pre-commit hooks
+./scripts/setup-pre-commit.sh
+
+# Hooks run automatically on git commit
+# Run manually:
+pre-commit run --all-files
+```
+
+### Deployment Gates
+
+Before deployment, run deployment gate checks:
+
+```bash
+# Run pre-deployment checks
+./scripts/deployment-gate.sh
+
+# Or use SAM quality gate
+./skills/sam-develop/scripts/lint_build_test.sh --ci-mode
+```
+
+See `templates/ci/DEPLOYMENT_GATE.md` for full documentation.
 
 ---
 

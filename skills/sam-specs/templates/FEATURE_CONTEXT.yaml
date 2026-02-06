@@ -1,0 +1,215 @@
+# Feature-specific context variables
+# These variables override global context for this specific feature
+# Use this file to define feature-specific configuration, test data, and mocks
+
+version: "1.0"
+
+# Feature metadata
+feature:
+  id: "{{FEATURE_ID}}"
+  name: "{{FEATURE_NAME}}"
+  description: "{{FEATURE_DESCRIPTION}}"
+  epic: "{{EPIC_ID}}"
+  story: "{{STORY_ID}}"
+
+# Feature-specific overrides
+# These values take precedence over global CONTEXT.yaml
+application:
+  # Override application settings for this feature if needed
+  version: "{{FEATURE_VERSION}}"
+
+# Feature database configuration
+database:
+  # Feature-specific tables and collections
+  tables:
+    - "{{TABLE_1}}"
+    - "{{TABLE_2}}"
+    - "{{TABLE_3}}"
+
+  # Feature-specific indexes
+  indexes:
+    - table: "{{TABLE_NAME}}"
+      columns: ["{{COLUMN_1}}", "{{COLUMN_2}}"]
+      unique: {{UNIQUE_INDEX}}
+
+# Feature authentication requirements
+auth:
+  # Feature-specific auth requirements
+  required: {{AUTH_REQUIRED}}
+  permissions:
+    - "{{PERMISSION_1}}"
+    - "{{PERMISSION_2}}"
+    - "{{PERMISSION_3}}"
+
+  # Feature-specific roles
+  roles:
+    - "{{ROLE_1}}"
+    - "{{ROLE_2}}"
+
+# Feature external service integrations
+services:
+  # Feature-specific email templates
+  email:
+    templates:
+      verification: "{{EMAIL_TEMPLATE_VERIFICATION}}"
+      notification: "{{EMAIL_TEMPLATE_NOTIFICATION}}"
+      alert: "{{EMAIL_TEMPLATE_ALERT}}"
+
+  # Feature-specific storage paths
+  storage:
+    paths:
+      uploads: "{{STORAGE_UPLOADS_PATH}}"
+      exports: "{{STORAGE_EXPORTS_PATH}}"
+      archives: "{{STORAGE_ARCHIVES_PATH}}"
+
+# Feature flags specific to this feature
+flags:
+  # Override global flags for this feature
+  enable_analytics: {{FEATURE_ENABLE_ANALYTICS}}
+  enable_tracking: {{FEATURE_ENABLE_TRACKING}}
+  enable_notifications: {{FEATURE_ENABLE_NOTIFICATIONS}}
+
+  # Feature-specific flags
+  enable_beta: {{FEATURE_ENABLE_BETA}}
+  enable_experiment: {{FEATURE_ENABLE_EXPERIMENT}}
+
+# Feature API configuration
+api:
+  # Feature-specific endpoints
+  base_path: "{{API_BASE_PATH}}"
+  endpoints:
+    - path: "{{ENDPOINT_1_PATH}}"
+      method: "{{ENDPOINT_1_METHOD}}"
+      auth_required: {{ENDPOINT_1_AUTH}}
+      rate_limit: "{{ENDPOINT_1_RATE_LIMIT}}"
+
+    - path: "{{ENDPOINT_2_PATH}}"
+      method: "{{ENDPOINT_2_METHOD}}"
+      auth_required: {{ENDPOINT_2_AUTH}}
+      rate_limit: "{{ENDPOINT_2_RATE_LIMIT}}"
+
+  # Feature-specific rate limiting
+  rate_limit:
+    enabled: {{FEATURE_RATE_LIMIT_ENABLED}}
+    requests_per_minute: {{FEATURE_RATE_LIMIT_RPM}}
+    burst_size: {{FEATURE_RATE_LIMIT_BURST}}
+
+# Feature test configuration
+testing:
+  # Test data defaults
+  data:
+    users:
+      - id: "{{TEST_USER_1_ID}}"
+        email: "{{TEST_USER_1_EMAIL}}"
+        role: "{{TEST_USER_1_ROLE}}"
+
+      - id: "{{TEST_USER_2_ID}}"
+        email: "{{TEST_USER_2_EMAIL}}"
+        role: "{{TEST_USER_2_ROLE}}"
+
+    fixtures:
+      - name: "{{FIXTURE_1_NAME}}"
+        file: "{{FIXTURE_1_FILE}}"
+
+      - name: "{{FIXTURE_2_NAME}}"
+        file: "{{FIXTURE_2_FILE}}"
+
+  # Mock service configurations
+  mocks:
+    - service: "{{MOCK_SERVICE_1}}"
+      responses:
+        - scenario: "{{SCENARIO_1}}"
+          response: "{{MOCK_RESPONSE_1}}"
+
+        - scenario: "{{SCENARIO_2}}"
+          response: "{{MOCK_RESPONSE_2}}"
+
+    - service: "{{MOCK_SERVICE_2}}"
+      responses:
+        - scenario: "{{SCENARIO_3}}"
+          response: "{{MOCK_RESPONSE_3}}"
+
+  # Test-specific overrides
+  default_framework: "{{FEATURE_TEST_FRAMEWORK}}"
+  coverage_target: {{FEATURE_COVERAGE_TARGET}}
+
+# Feature state machine configuration (if applicable)
+state_machines:
+  # State machine specific context
+  - machine_id: "{{STATE_MACHINE_ID}}"
+    initial_context:
+      {{CONTEXT_VAR_1}}: "{{CONTEXT_VALUE_1}}"
+      {{CONTEXT_VAR_2}}: "{{CONTEXT_VALUE_2}}"
+
+    # State timeouts
+    timeouts:
+      {{STATE_1}}: "{{TIMEOUT_1}}"
+      {{STATE_2}}: "{{TIMEOUT_2}}"
+
+    # State machine hooks
+    hooks:
+      on_transition: "{{ON_TRANSITION_HOOK}}"
+      on_error: "{{ON_ERROR_HOOK}}"
+
+# Feature decision table configuration (if applicable)
+decision_tables:
+  # Decision table specific context
+  - table_id: "{{DECISION_TABLE_ID}}"
+    default_values:
+      {{DEFAULT_INPUT_1}}: "{{DEFAULT_VALUE_1}}"
+      {{DEFAULT_INPUT_2}}: "{{DEFAULT_VALUE_2}}"
+
+    # Rule priorities
+    priorities:
+      critical: ["{{RULE_1}}", "{{RULE_2}}"]
+      high: ["{{RULE_3}}", "{{RULE_4}}"]
+      medium: ["{{RULE_5}}"]
+
+# Feature security requirements
+security:
+  # Feature-specific security rules
+  data_classification: "{{DATA_CLASSIFICATION}}"  # public, internal, confidential, restricted
+  pii_handling: {{HANDLES_PII}}
+  encryption_required: {{ENCRYPTION_REQUIRED}}
+
+  # Feature-specific access control
+  access_control:
+    owner_only: {{OWNER_ONLY_ACCESS}}
+    team_access: ["{{TEAM_1}}", "{{TEAM_2}}"]
+    audit_access: {{AUDIT_ACCESS_REQUIRED}}
+
+# Feature monitoring configuration
+monitoring:
+  # Feature-specific metrics
+  metrics:
+    - name: "{{METRIC_1_NAME}}"
+      type: "{{METRIC_1_TYPE}}"  # counter, gauge, histogram
+      labels: ["{{LABEL_1}}", "{{LABEL_2}}"]
+
+    - name: "{{METRIC_2_NAME}}"
+      type: "{{METRIC_2_TYPE}}"
+      labels: ["{{LABEL_3}}", "{{LABEL_4}}"]
+
+  # Feature-specific alerts
+  alerts:
+    - name: "{{ALERT_1_NAME}}"
+      condition: "{{ALERT_1_CONDITION}}"
+      severity: "{{ALERT_1_SEVERITY}}"  # critical, warning, info
+
+    - name: "{{ALERT_2_NAME}}"
+      condition: "{{ALERT_2_CONDITION}}"
+      severity: "{{ALERT_2_SEVERITY}}"
+
+# Feature documentation
+documentation:
+  # API documentation
+  api_docs_url: "{{API_DOCS_URL}}"
+  examples_url: "{{EXAMPLES_URL}}"
+
+  # User-facing documentation
+  user_guide_url: "{{USER_GUIDE_URL}}"
+  admin_guide_url: "{{ADMIN_GUIDE_URL}}"
+
+  # Developer documentation
+  architecture_doc: "{{ARCHITECTURE_DOC_URL}}"
+  design_doc: "{{DESIGN_DOC_URL}}"
