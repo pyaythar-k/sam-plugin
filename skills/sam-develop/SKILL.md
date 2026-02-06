@@ -24,7 +24,7 @@ Phase 4 of the SAM (Specs → Stories → Development) workflow. This skill orch
 
 ## Workflow
 
-### 1. Task Planning
+### 1. Task Planning (MODULAR SPEC READING)
 
 1. **Read codebase context:**
    ```
@@ -32,19 +32,50 @@ Phase 4 of the SAM (Specs → Stories → Development) workflow. This skill orch
    ```
    Extract existing patterns, reusable components, and architecture conventions.
 
-2. Read `TECHNICAL_SPEC.md` from `.sam/{feature_id}/`
+2. **Read TASKS.json from `.sam/{feature_id}/`**:
+   ```bash
+   python3 skills/sam-develop/scripts/task_registry.py read .sam/{feature_id}
+   ```
 
-3. Parse all checkbox tasks from the specification
+3. **Read project type from TASKS.json metadata** (NEW):
+   ```python
+   project_type = registry.get_project_type()  # e.g., "baas-fullstack", "frontend-only"
+   phase_structure = registry.get_phase_structure(project_type)  # e.g., ["1", "2", "3", "4"]
+   ```
+   - Phase count varies by project_type (3-5 phases)
+   - Use phase_structure to adapt task planning
 
-4. Identify uncompleted tasks (checkboxes with `[ ]`)
+4. **Identify current phase** from TASKS.json checkpoint
 
-5. Prioritize tasks based on dependencies
+5. **Read only current phase's PHASE_*.md file**:
+   - If current_phase = "1", read IMPLEMENTATION_TASKS/PHASE_1_FOUNDATION.md
+   - If current_phase = "2" and project_type = "baas-fullstack", read PHASE_2_BAAS_INTEGRATION.md
+   - If current_phase = "2" and project_type = "full-stack", read PHASE_2_BACKEND.md
+   - etc. (Phase names vary by project type)
 
-6. **Pattern Validation:** Before spawning subagents, verify:
+6. **Load relevant sections from main TECHNICAL_SPEC.md**:
+   - Architecture Overview (once, at start)
+   - Database Schema (if backend phase or BaaS integration)
+   - API Specification (if backend phase, skip for frontend-only)
+   - BaaS Integration (if project_type = "baas-fullstack")
+   - Component Architecture (if frontend phase)
+
+7. **Parse checkbox tasks from current phase only**
+
+8. **Identify uncompleted tasks** (checkboxes with `[ ]`)
+
+9. **Prioritize tasks based on dependencies**
+
+10. **Pattern Validation:** Before spawning subagents, verify:
    - New code follows existing patterns from CODEBASE_CONTEXT.md
    - Reusable components are referenced, not recreated
    - Tech stack versions are compatible
    - Architecture aligns with existing conventions
+
+**If TASKS.json or modular files are missing**:
+- Fall back to reading entire TECHNICAL_SPEC.md (legacy mode)
+- Log warning: "Modular spec structure not found, using legacy mode"
+- Consider migrating: `python3 scripts/migrate_spec.py .sam/{feature_id}`
 
 ### 2. Parallel Development Strategy
 
@@ -98,21 +129,76 @@ while (uncompleted_checkboxes_exist in TECHNICAL_SPEC.md):
 - ✅ Architecture decisions → Make decision based on best practices, document, continue
 - ✅ Verification gaps → Create fix tasks and continue loop
 
-#### 3.1 Task Planning (Each Loop Iteration)
+#### 3.1 Task Planning (Each Loop Iteration) - INCREMENTAL READING
 
-1. Read `TECHNICAL_SPEC.md` from `.sam/{feature_id}/`
-2. Parse ALL checkbox tasks using regex pattern `- \[([ x])\]`
-3. Filter to ONLY uncompleted tasks (`[ ]` checkboxes)
-4. Identify parallelizable tasks (no dependencies on incomplete tasks)
+**CRITICAL**: Use TASKS.json for 98% token reduction. DO NOT read entire spec.
+
+1. **Read TASKS.json first**:
+   ```bash
+   python3 skills/sam-develop/scripts/task_registry.py read .sam/{feature_id}
+   ```
+
+2. **Get pending tasks from registry**:
+   - Filter to ONLY uncompleted tasks (status: "pending")
+   - Identify parallelizable tasks (no dependencies on incomplete tasks)
+
+3. **Incrementally read spec sections**:
+   - For each pending task, read ONLY its section from TECHNICAL_SPEC.md
+   - Use line numbers from TASKS.json (section_start, section_end)
+   - DO NOT read the entire file
+
+4. **Respect parallel limits**:
+   - Maximum 3 parallel subagents per iteration (configurable via SAM_MAX_PARALLEL_SUBAGENTS)
+   - Only spawn tasks that are truly independent
+
+**Example incremental reading**:
+```python
+# Instead of reading entire spec (5,000-10,000 tokens)
+full_spec = read_file("TECHNICAL_SPEC.md")  # ❌ DON'T DO THIS
+
+# Read only what you need (~100-500 tokens)
+task = registry.get_task("1.1")
+task_spec = read_lines("TECHNICAL_SPEC.md", task.section_start, task.section_end)  # ✅ DO THIS
+```
 
 **If NO uncompleted tasks remain**:
-- Verify ALL checkboxes are `[x]`
+- Verify via TASKS.json: `coverage_percent == 100`
 - Proceed to Section 4 (Verification Phase)
 - DO NOT create additional tasks
 
-#### 3.2 Spawn Parallel Subagents
+**If TASKS.json is missing**:
+- Fall back to reading entire TECHNICAL_SPEC.md (legacy mode)
+- Generate TASKS.json: `python3 skills/sam-specs/scripts/spec_parser.py .sam/{feature_id}`
+- Use registry for next iteration
+
+#### 3.2 Spawn Parallel Subagents (WITH LIMITS)
 
 For the CURRENT iteration's parallel task group:
+
+**PARALLEL LIMITS (CRITICAL)**:
+- **Maximum 3 parallel subagents per iteration** (default)
+- Configurable via `SAM_MAX_PARALLEL_SUBAGENTS` environment variable
+- Respect dependencies from TASKS.json
+- Only spawn truly independent tasks
+
+**Get parallel limit**:
+```python
+import os
+max_parallel = int(os.environ.get('SAM_MAX_PARALLEL_SUBAGENTS', '3'))
+```
+
+**Example with 3 parallel limit**:
+```python
+# Get 3 independent tasks
+pending = registry.get_pending_tasks()
+independent = [t for t in pending if not t.dependencies]
+
+# Spawn only 3 at a time
+for batch in chunks(independent, max_parallel):
+    spawn_parallel_subagents(batch)
+    wait_for_all_complete()
+    update_checkpoints()
+```
 
 **SUBAGENT AUTONOMOUS EXECUTION RULES**:
 - Each subagent MUST complete its task WITHOUT asking for confirmation
@@ -121,12 +207,13 @@ For the CURRENT iteration's parallel task group:
 - DO NOT ask "Should I do X?" → Just do X
 - DO NOT ask "Which approach?" → Choose best practice
 
-1. **Spawn Subagents**: Launch multiple subagents simultaneously using Task tool
+1. **Spawn Subagents**: Launch up to max_parallel subagents simultaneously using Task tool
 2. **Implementation**: Each subagent:
-   - Reads assigned task requirements from TECHNICAL_SPEC.md
+   - Reads assigned task requirements from current phase's PHASE_*.md
    - Implements the code
    - Runs `./skills/sam-develop/scripts/lint_build_test.sh`
    - Updates checkboxes: `[ ]` → `[x]` using Edit tool
+   - Updates TASKS.json: `python3 task_registry.py update .sam/{feature} {task_id} --status completed`
 3. **Report Results**: Each subagent reports:
    - Completed tasks
    - Failed checks
@@ -145,18 +232,31 @@ Run mandatory checks after each task completion:
 - DO NOT mark task as `[x]` until all checks pass
 - DO NOT proceed to next task until current task passes
 
-#### 3.4 Update Checkboxes
+#### 3.4 Update Checkboxes and Task Registry (NEW)
 
-After each task completes successfully:
-1. Read the TECHNICAL_SPEC.md file
-2. Locate the specific checkbox
-3. Update: `[ ]` → `[x]`
-4. Optionally add completion note:
+**After each task completes successfully, you MUST update BOTH files:**
+
+1. **Update TECHNICAL_SPEC.md**:
+   - Read the file
+   - Locate the specific checkbox
+   - Update: `[ ]` → `[x]`
+   - Add completion note with timestamp
    ```markdown
    - [x] Implement POST /api/users
      - Maps to: Story 001 (AC: User can sign up)
-     - Completed: 2025-02-05
+     - Completed: 2025-02-06
    ```
+
+2. **Update TASKS.json** (CRITICAL for checkpoint/resume):
+   ```bash
+   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} --status completed
+   ```
+
+**This dual update ensures:**
+- Visual progress in spec file
+- Fast state tracking in registry
+- Resume capability if interrupted
+- Accurate coverage reporting
 
 #### 3.5 MANDATORY QUALITY GATE CHECKPOINT
 
@@ -171,7 +271,27 @@ After each task completes successfully:
    - If ALL pass → Proceed to step 3
    - If ANY fails → Fix, re-run, DO NOT proceed until ALL pass
 
-3. **Update TECHNICAL_SPEC.md Progress**:
+3. **Update TASKS.json checkpoint with quality gate results**:
+   ```bash
+   python3 skills/sam-develop/scripts/task_registry.py update .sam/{feature_id} {task_id} --status completed
+   ```
+
+   Then manually update checkpoint with quality gate results:
+   ```json
+   {
+     "checkpoint": {
+       "quality_gate_last_passed": "2025-02-06T14:30:00Z",
+       "last_quality_gate_result": {
+         "linting": "passed",
+         "type_check": "passed",
+         "build": "passed",
+         "tests": "passed"
+       }
+     }
+   }
+   ```
+
+4. **Update TECHNICAL_SPEC.md Progress**:
    - Mark completed tasks as `[x]`
    - Add completion notes with timestamp
    - Save the file
@@ -183,37 +303,102 @@ After each task completes successfully:
 - ✅ Unit Tests: PASSED (all tests passing)
 - ✅ E2E Tests: PASSED (or N/A if not configured)
 
-#### 3.6 Check Loop Condition
+**Quality gate tracking in TASKS.json enables**:
+- Resume from last known good state
+- Audit trail of quality checks
+- Debug failed iterations by examining checkpoint history
 
-**After each iteration, explicitly check**:
+#### 3.6 Check Loop Condition (UPDATED)
+
+**After each iteration, explicitly check via TASKS.json**:
 ```bash
-grep -c '\[ \]' .sam/{feature_id}/TECHNICAL_SPEC.md
+python3 skills/sam-develop/scripts/task_registry.py read .sam/{feature_id}
+```
+
+**Or use checkpoint command**:
+```bash
+python3 skills/sam-develop/scripts/task_registry.py checkpoint .sam/{feature_id} --task {last_completed_task_id}
 ```
 
 **Decision**:
-- If count = 0: All tasks complete → EXIT loop and proceed to Section 4
-- If count > 0: Uncompleted tasks remain → RETURN to Section 3.1
+- If `coverage_percent == 100`: All tasks complete → EXIT loop and proceed to Section 4
+- If `coverage_percent < 100`: Uncompleted tasks remain → RETURN to Section 3.1
 
-#### 3.7 Handle Failures
+**Checkpoint saves**:
+- Last completed task ID
+- Current timestamp
+- Iteration count (incremented automatically)
+- Current phase
+- Active tasks (if any)
+
+#### 3.7 Checkpoint and Resume Capability (NEW)
+
+**Enhanced TASKS.json checkpoint schema**:
+```json
+{
+  "checkpoint": {
+    "last_completed_task": "2.1.3",
+    "last_checkpoint_time": "2025-02-06T14:30:00Z",
+    "iteration_count": 15,
+    "current_phase": "2",
+    "active_tasks": ["2.1.4", "2.1.5", "2.2.1"],
+    "quality_gate_last_passed": "2025-02-06T14:25:00Z",
+    "last_quality_gate_result": {
+      "linting": "passed",
+      "type_check": "passed",
+      "build": "passed",
+      "tests": "passed"
+    }
+  }
+}
+```
+
+**Resume Logic**:
+- On start: Check for TASKS.json checkpoint
+- If exists: Load checkpoint, resume from `last_completed_task`
+- If missing: Start from beginning, create initial checkpoint
+
+**Resume command**:
+```bash
+python3 skills/sam-develop/scripts/task_registry.py resume .sam/{feature_id}
+```
+
+Output:
+```
+Resume Information:
+  Last Completed: 2.1.3
+  Current Phase: 2
+  Progress: 12/47 (26%)
+  Active Tasks: 2.1.4, 2.1.5, 2.2.1
+
+Next Tasks (Phase 2):
+  - 2.1.4: Add authentication middleware
+  - 2.1.5: Add error handling middleware
+  - 2.2.1: Implement user service
+```
+
+#### 3.8 Handle Failures
 
 **For failed quality gates**:
 - Create specific fix task
 - Add as new checkbox in TECHNICAL_SPEC.md
+- Add to TASKS.json using update command
 - Continue loop with fix task
 - DO NOT pause or ask for confirmation
 
 **For CRITICAL BLOCKERS only** (see definition in Section 3):
 - Document the blocker
+- Save checkpoint with error state
 - PAUSE and ask user for guidance
 - Do NOT exit the loop
 
-#### 3.8 Loop Back Instruction
+#### 3.9 Loop Back Instruction
 
 **Decision**:
-- If count = 0: All tasks complete → EXIT loop and proceed to Section 4
-- If count > 0: Uncompleted tasks remain → **RETURN to Section 3.1 WITHOUT ASKING**
+- If `coverage_percent == 100`: All tasks complete → EXIT loop and proceed to Section 4
+- If `coverage_percent < 100`: Uncompleted tasks remain → **RETURN to Section 3.1 WITHOUT ASKING**
 
-**IMPORTANT**: The transition from 3.8 back to 3.1 is AUTOMATIC.
+**IMPORTANT**: The transition from 3.9 back to 3.1 is AUTOMATIC.
 - ❌ DO NOT ask for confirmation
 - ❌ DO NOT report status
 - ❌ DO NOT pause for any reason

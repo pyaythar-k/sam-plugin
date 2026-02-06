@@ -48,6 +48,47 @@ python3 skills/sam-specs/scripts/codebase_analyzer.py {project_root}
 - Pattern alignment notes
 - Tech stack version compatibility
 
+### 1.6. Project Type Classification (NEW)
+
+**Classify project before generating specs:**
+
+```bash
+# Run classification
+python3 skills/sam-specs/scripts/classify_project.py .sam/{feature}
+
+# Read result
+cat .sam/{feature}/TASKS.json | jq .metadata.project_type
+```
+
+**Override from discovery**:
+- If FEATURE_DOCUMENTATION.md contains `project_type` field, use it
+- User-specified type takes precedence over auto-detection
+
+**Project Types:**
+
+| Type | Description | Phases | API Spec | Database |
+|------|-------------|--------|----------|----------|
+| `baas-fullstack` | Supabase/Firebase + frontend | 5 | BaaS Integration | RLS policies |
+| `frontend-only` | No backend + external API | 4 | Skip | Skip |
+| `full-stack` | Custom backend detected | 5 | Standard API | SQL DDL |
+| `static-site` | Next.js static, no backend | 4 | Skip | Skip |
+
+**Phase Structure by Type:**
+
+```python
+# baas-fullstack
+phases = ["FOUNDATION", "BAAS_INTEGRATION", "FRONTEND", "INTEGRATION", "QA"]
+
+# frontend-only
+phases = ["FOUNDATION", "FRONTEND", "INTEGRATION", "QA"]
+
+# full-stack
+phases = ["FOUNDATION", "BACKEND", "FRONTEND", "INTEGRATION", "QA"]
+
+# static-site
+phases = ["FOUNDATION", "CONTENT", "DEPLOYMENT", "QA"]
+```
+
 ### 2. Context7 Research (WITH FALLBACK)
 
 **Fallback Chain:** Context7 → Web Search → Brave Search → Built-in Search
@@ -82,22 +123,73 @@ Library ID: {e.g., /authjs/next-auth}
 Query: "Security best practices for {authentication/authorization}, session management, and token handling"
 ```
 
-### 3. Specification Generation
+### 3. Specification Generation (CONDITIONAL)
 
-Create comprehensive technical specification covering:
+**Read project type first:**
+```python
+# Get project type from TASKS.json or run classification
+project_type = get_project_type()  # from TASKS.json metadata
+baas_provider = get_baas_provider()  # from CODEBASE_CONTEXT.json
+```
+
+**Conditional section generation:**
+
+| Section | baas-fullstack | frontend-only | full-stack | static-site |
+|---------|----------------|---------------|------------|-------------|
+| API Specification | BaaS Integration | ❌ Skip | Standard | ❌ Skip |
+| Database Schema | RLS Policies | ❌ Skip | SQL DDL | ❌ Skip |
+| Component Architecture | BaaS-focused | Standard | Standard | Minimal |
+
+**Generate specification sections based on project type:**
+
+```python
+if project_type == "baas-fullstack":
+    # API Specification becomes "BaaS Integration"
+    # Database Schema shows RLS policies/Firestore rules
+    generate_baas_integration_section(baas_provider)
+    generate_rls_policies_section()
+
+elif project_type == "frontend-only":
+    # Skip API Specification entirely
+    # Skip Database Schema entirely
+    # Focus on component architecture and API client
+
+elif project_type == "full-stack":
+    # Standard structure with API endpoints and SQL DDL
+    generate_api_specification()
+    generate_database_schema()
+
+elif project_type == "static-site":
+    # Minimal component architecture
+    # No API or database sections
+```
+
+**Architecture Overview** (always generated):
+- System architecture diagram/description
+- Technology stack table with versions and rationale
+- Design patterns to apply
+
+**Component Architecture** (adapted based on type):
+- Frontend component hierarchy
+- State management approach
+- Routing structure
+- For BaaS: Add BaaS client integration notes
+
+**Create comprehensive technical specification covering:**
 
 **Architecture Overview**
 - System architecture diagram/description
 - Technology stack table with versions and rationale
 - Design patterns to apply
 
-**Database Schema**
-- Entity definitions with DDL statements
+**Database Schema** (if applicable)
+- Entity definitions with DDL statements OR RLS policies
 - Relationships and constraints
 - Indexes for performance
 
-**API Specification**
-- All endpoints with HTTP methods
+**API Specification** (if applicable)
+- For BaaS: BaaS client integration patterns
+- For custom backend: All endpoints with HTTP methods
 - Request/response schemas
 - Authentication requirements
 - Error response codes
@@ -120,13 +212,152 @@ Convert all user story acceptance criteria into actionable technical tasks.
   - [ ] Set up linting (ESLint, Prettier)
 ```
 
-### 5. Output Generation
+### 5. Output Generation (MODULAR STRUCTURE)
 
-Generate `.sam/{feature}/TECHNICAL_SPEC.md`.
+Generate modular specification files:
+
+**5.1 Main TECHNICAL_SPEC.md** (architecture and stable content):
+- Architecture Overview
+- Technology Stack
+- Design Patterns
+- Database Schema
+- API Specification
+- Component Architecture
+- Development Guidelines
+- Context7 References
+- Deployment Checklist
+
+**5.2 IMPLEMENTATION_TASKS.md** (phase summaries):
+- List all phases with links to detailed files
+- Provide quick overview of phase structure
+
+**5.3 PHASE_*.md files** (detailed implementation tasks):
+
+**Phase structure based on project_type:**
+
+```python
+# Phase structure based on project_type
+if project_type == "baas-fullstack":
+    phases = ["FOUNDATION", "BAAS_INTEGRATION", "FRONTEND", "INTEGRATION", "QA"]
+    phase_files = [
+        "PHASE_1_FOUNDATION.md",
+        "PHASE_2_BAAS_INTEGRATION.md",
+        "PHASE_3_FRONTEND.md",
+        "PHASE_4_INTEGRATION.md",
+        "PHASE_5_QUALITY_ASSURANCE.md"
+    ]
+elif project_type == "frontend-only":
+    phases = ["FOUNDATION", "FRONTEND", "INTEGRATION", "QA"]
+    phase_files = [
+        "PHASE_1_FOUNDATION.md",
+        "PHASE_2_FRONTEND.md",
+        "PHASE_3_INTEGRATION.md",
+        "PHASE_4_QUALITY_ASSURANCE.md"
+    ]
+elif project_type == "full-stack":
+    phases = ["FOUNDATION", "BACKEND", "FRONTEND", "INTEGRATION", "QA"]
+    phase_files = [
+        "PHASE_1_FOUNDATION.md",
+        "PHASE_2_BACKEND.md",
+        "PHASE_3_FRONTEND.md",
+        "PHASE_4_INTEGRATION.md",
+        "PHASE_5_QUALITY_ASSURANCE.md"
+    ]
+elif project_type == "static-site":
+    phases = ["FOUNDATION", "CONTENT", "DEPLOYMENT", "QA"]
+    phase_files = [
+        "PHASE_1_FOUNDATION.md",
+        "PHASE_2_CONTENT.md",
+        "PHASE_3_DEPLOYMENT.md",
+        "PHASE_4_QUALITY_ASSURANCE.md"
+    ]
+```
+
+**Standard full-stack example**:
+- PHASE_1_FOUNDATION.md
+- PHASE_2_BACKEND.md
+- PHASE_3_FRONTEND.md
+- PHASE_4_INTEGRATION.md
+- PHASE_5_QUALITY_ASSURANCE.md
+
+**Directory Structure**:
+```
+.sam/{feature}/
+├── TECHNICAL_SPEC.md          # Main spec (architecture, database, API)
+├── TASKS.json                  # Task registry (auto-generated in step 6)
+└── IMPLEMENTATION_TASKS.md     # Phase summaries
+    ├── PHASE_1_FOUNDATION.md
+    ├── PHASE_2_BACKEND.md
+    ├── PHASE_3_FRONTEND.md
+    ├── PHASE_4_INTEGRATION.md
+    └── PHASE_5_QUALITY_ASSURANCE.md
+```
+
+**Benefits**:
+- Main spec contains only stable content (rarely changes)
+- Implementation tasks are phase-isolated (read only current phase)
+- 98% token reduction for sam-develop (reads only current phase)
+
+### 6. Task Registry Generation (NEW - CRITICAL)
+
+**After generating TECHNICAL_SPEC.md, you MUST generate TASKS.json:**
+
+```bash
+python3 skills/sam-specs/scripts/spec_parser.py .sam/{feature}
+```
+
+**This step is MANDATORY because:**
+- TASKS.json enables incremental reading (98% token reduction)
+- Provides fast status checks without parsing entire spec
+- Enables checkpoint/resume capability for sam-develop
+- Tracks line numbers for precise spec section reading
+
+**TASKS.json Schema:**
+```json
+{
+  "metadata": {
+    "feature_id": "001_user_auth",
+    "feature_name": "User Authentication",
+    "spec_version": "2.0",
+    "total_tasks": 47,
+    "completed_tasks": 0,
+    "current_phase": "1"
+  },
+  "phases": [
+    {
+      "phase_id": "1",
+      "phase_name": "Foundation",
+      "status": "pending",
+      "tasks": [
+        {
+          "task_id": "1.1",
+          "title": "Project Setup",
+          "status": "pending",
+          "spec_file": "TECHNICAL_SPEC.md",
+          "section_start": 267,
+          "section_end": 285,
+          "dependencies": [],
+          "story_mapping": null
+        }
+      ]
+    }
+  ],
+  "checkpoint": {
+    "last_completed_task": null,
+    "last_checkpoint_time": null,
+    "iteration_count": 0,
+    "current_phase": "1",
+    "active_tasks": [],
+    "quality_gate_last_passed": null,
+    "last_quality_gate_result": {}
+  }
+}
+```
 
 Report completion:
 ```
 ✅ Technical specification created: .sam/001_user_auth/TECHNICAL_SPEC.md
+✅ Task registry generated: .sam/001_user_auth/TASKS.json
 📚 Context7 research: 3 documentation sources queried
 📋 Tasks: 24 implementation tasks with checkbox tracking
 📋 Next: Run /sam-develop to start implementation

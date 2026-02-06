@@ -13,6 +13,7 @@ Generates CODEBASE_CONTEXT.md with:
 import os
 import re
 import json
+import logging
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
@@ -29,6 +30,11 @@ class CodebaseContext:
     dependencies: Dict[str, str] = field(default_factory=dict)
     architecture_notes: List[str] = field(default_factory=list)
     existing_features: List[str] = field(default_factory=list)
+    project_type: str = "unknown"  # NEW: Store project type classification
+
+    def _get_project_type(self) -> str:
+        """Get project type based on tech stack."""
+        return self.project_type or "unknown"
 
     def to_markdown(self) -> str:
         """Generate markdown report."""
@@ -40,6 +46,13 @@ class CodebaseContext:
         ]
         for layer, tech in self.tech_stack.items():
             lines.append(f"| {layer} | {tech} | |")
+
+        # Add project type classification (NEW)
+        lines.extend([
+            "\n## Project Classification\n",
+            f"**Project Type**: `{self._get_project_type()}`\n",
+            "*See `classify_project.py` for detailed classification logic.*\n"
+        ])
 
         if self.existing_features:
             lines.extend([
@@ -97,7 +110,10 @@ class HybridCodebaseAnalyzer:
         # Step 3: Validate and merge findings
         self._validate_and_merge()
 
-        logger.info("Codebase analysis complete")
+        # Step 4: Classify project type (NEW)
+        self.context.project_type = self.classify_project_type()
+
+        logger.info(f"Codebase analysis complete (project type: {self.context.project_type})")
         return self.context
 
     def _analyze_sam_docs(self):
@@ -181,6 +197,14 @@ class HybridCodebaseAnalyzer:
                 if "mongoose" in all_deps:
                     self.context.tech_stack["database"] = "MongoDB (Mongoose)"
 
+                # Detect BaaS providers (NEW)
+                if "@supabase/supabase-js" in all_deps or "@supabase/postgrest-js" in all_deps:
+                    self.context.tech_stack["baas"] = "Supabase"
+                if "firebase" in all_deps or "@firebase/app" in all_deps:
+                    self.context.tech_stack["baas"] = "Firebase"
+                if "@aws-amplify/core" in all_deps or "aws-amplify" in all_deps:
+                    self.context.tech_stack["baas"] = "AWS Amplify"
+
                 # Detect auth
                 if "next-auth" in all_deps or "@auth/core" in all_deps:
                     self.context.tech_stack["auth"] = "NextAuth.js"
@@ -198,6 +222,16 @@ class HybridCodebaseAnalyzer:
                     self.context.tech_stack["ui"] = "Material-UI"
                 if "@chakra-ui/react" in all_deps:
                     self.context.tech_stack["ui"] = "Chakra UI"
+
+                # Detect backend frameworks
+                if "express" in all_deps:
+                    self.context.tech_stack["backend"] = "Express"
+                if "fastify" in all_deps:
+                    self.context.tech_stack["backend"] = "Fastify"
+                if "nestjs" in all_deps or "@nestjs/common" in all_deps:
+                    self.context.tech_stack["backend"] = "NestJS"
+                if "@remix-run/node" in all_deps or "@remix-run/server-runtime" in all_deps:
+                    self.context.tech_stack["backend"] = "Remix"
 
             except json.JSONDecodeError:
                 logger.warning("Failed to parse package.json")
@@ -321,6 +355,79 @@ class HybridCodebaseAnalyzer:
         except Exception as e:
             logger.warning(f"Failed to extract from tech spec {spec_path}: {e}")
 
+    def classify_project_type(self) -> str:
+        """
+        Classify project based on detected tech stack.
+
+        Returns:
+            One of: 'baas-fullstack', 'frontend-only', 'full-stack', 'static-site', 'unknown'
+        """
+        tech = self.context.tech_stack
+
+        # Check for backend indicators
+        backend_frameworks = ["express", "fastify", "nestjs", "remix", "django", "fastapi", "flask"]
+        has_custom_backend = any(
+            fw in str(tech).lower() for fw in backend_frameworks
+        )
+
+        # Check for BaaS provider
+        has_baas = "baas" in tech
+
+        # Check for frontend framework
+        has_frontend = "framework" in tech
+
+        # Check if configured for static export
+        is_static_site = False
+        if "next.js" in str(tech).lower():
+            # Check next.config for static output
+            next_config = self.project_root / "next.config.js"
+            if next_config.exists():
+                config_content = next_config.read_text()
+                if "output: 'export'" in config_content or 'output: "export"' in config_content:
+                    is_static_site = True
+
+        # Classification logic
+        if has_baas and has_frontend:
+            return "baas-fullstack"
+        elif has_frontend and not has_backend and not has_baas:
+            return "frontend-only" if not is_static_site else "static-site"
+        elif has_frontend and has_backend:
+            return "full-stack"
+        elif is_static_site:
+            return "static-site"
+        return "unknown"
+
+    def get_baas_provider(self) -> Optional[str]:
+        """Get the detected BaaS provider name."""
+        return self.context.tech_stack.get("baas")
+
+    def has_custom_backend(self) -> bool:
+        """Check if project has a custom backend implementation."""
+        backend_frameworks = ["express", "fastify", "nestjs", "remix", "django", "fastapi", "flask"]
+        return any(
+            fw in str(self.context.tech_stack).lower()
+            for fw in backend_frameworks
+        )
+
+    def to_json(self) -> str:
+        """
+        Export context as JSON for programmatic use by sam-specs.
+
+        Returns:
+            JSON string with classification data
+        """
+        import json
+        return json.dumps({
+            "project_type": self.classify_project_type(),
+            "tech_stack": self.context.tech_stack,
+            "baas_provider": self.get_baas_provider(),
+            "has_custom_backend": self.has_custom_backend(),
+            "has_frontend": "framework" in self.context.tech_stack,
+            "patterns": self.context.patterns,
+            "components": self.context.components,
+            "services": self.context.services
+        }, indent=2)
+
 
 def main():
     """CLI entry point."""
@@ -334,11 +441,17 @@ def main():
     markdown = context.to_markdown()
     print(markdown)
 
-    # Save to file
+    # Save markdown to file
     output_path = project_root / ".sam" / "CODEBASE_CONTEXT.md"
     output_path.parent.mkdir(exist_ok=True)
     output_path.write_text(markdown)
     print(f"\n✓ Codebase context saved to: {output_path}")
+
+    # Save JSON for programmatic use (NEW)
+    json_output = analyzer.to_json()
+    json_path = project_root / ".sam" / "CODEBASE_CONTEXT.json"
+    json_path.write_text(json_output)
+    print(f"✓ Codebase context JSON saved to: {json_path}")
 
 
 # Setup logging

@@ -5,6 +5,8 @@ verify_coverage.py - Verify code coverage against specifications
 This script checks that all requirements from feature documentation,
 user stories, and technical specifications are covered in the implementation.
 
+With TASKS.json support for fast coverage checks.
+
 Usage:
     python3 skills/sam-develop/scripts/verify_coverage.py <feature_id>
     python3 skills/sam-develop/scripts/verify_coverage.py --all
@@ -17,10 +19,52 @@ Exit codes:
 
 import sys
 import re
+import json
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
+
+
+def read_task_registry(feature_dir: Path) -> Optional[Dict[str, Any]]:
+    """
+    Read TASKS.json for fast coverage information.
+
+    Returns:
+        Task registry dict if found, None otherwise
+    """
+    registry_file = feature_dir / "TASKS.json"
+
+    if not registry_file.exists():
+        return None
+
+    try:
+        with open(registry_file, 'r') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return None
+
+
+def get_coverage_from_registry(registry: Dict[str, Any]) -> Tuple[int, int, List[str]]:
+    """
+    Get coverage information from TASKS.json registry.
+
+    Returns:
+        Tuple of (completed_count, total_count, list_of_uncompleted_tasks)
+    """
+    total_tasks = 0
+    completed_tasks = 0
+    uncompleted_tasks = []
+
+    for phase in registry.get('phases', []):
+        for task in phase.get('tasks', []):
+            total_tasks += 1
+            if task.get('status') == 'completed':
+                completed_tasks += 1
+            else:
+                uncompleted_tasks.append(f"{task.get('task_id')}: {task.get('title', 'Unknown')}")
+
+    return completed_tasks, total_tasks, uncompleted_tasks
 
 
 def parse_checkboxes(spec_file: Path) -> Tuple[int, int, List[str]]:
@@ -199,8 +243,18 @@ def verify_feature(feature_dir: Path) -> bool:
         print(f"❌ Missing files: {', '.join(missing_files)}")
         return False
 
-    # Parse specifications
-    spec_completed, spec_total, spec_uncompleted = parse_checkboxes(spec_file)
+    # Try to use TASKS.json for fast coverage check
+    registry = read_task_registry(feature_dir)
+
+    if registry:
+        print("✓ Using TASKS.json for fast coverage check")
+        spec_completed, spec_total, spec_uncompleted = get_coverage_from_registry(registry)
+    else:
+        print("⚠ TASKS.json not found, falling back to spec parsing")
+        print("  Run: python3 skills/sam-specs/scripts/spec_parser.py .sam/{feature}")
+        # Parse specifications
+        spec_completed, spec_total, spec_uncompleted = parse_checkboxes(spec_file)
+
     spec_coverage = (spec_completed / spec_total * 100) if spec_total > 0 else 0
 
     print(f"Technical Specification:")

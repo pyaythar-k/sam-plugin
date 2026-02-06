@@ -89,6 +89,15 @@ Use `AskUserQuestion` tool systematically. Continue until 100% clarity.
 - Are there constraints? (performance, memory, compatibility)
 - What integrations are required? (APIs, third-party services)
 
+#### Project Architecture Question (NEW)
+"Is this project:" (Use AskUserQuestion with these options)
+- Frontend-only (consuming external APIs)
+- Full-stack (custom backend)
+- BaaS-based (Supabase, Firebase, etc.)
+- Static site (no backend)
+
+Store answer in FEATURE_DOCUMENTATION.md metadata:
+
 #### UX/UI Questions
 - Is there a design system to follow? (Figma, Storybook)
 - What accessibility level is required? (WCAG 2.1 AA/AAA)
@@ -152,6 +161,7 @@ You MUST generate FEATURE_DOCUMENTATION.md following THIS EXACT STRUCTURE:
 - **Status**: Discovery | In Progress | Completed
 - **Created**: {Date}
 - **Last Updated**: {Date}
+- **Project Type**: baas-fullstack | frontend-only | full-stack | static-site (optional, overrides auto-detection)
 
 ---
 
