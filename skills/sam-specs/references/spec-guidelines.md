@@ -6,6 +6,27 @@ Technical specs bridge the gap between user stories and implementation.
 
 ## Key Sections
 
+### Integration with Existing Codebase (NEW)
+
+Before designing new features, analyze the existing project:
+
+**Generate codebase context:**
+```bash
+python3 skills/sam-specs/scripts/codebase_analyzer.py
+```
+
+**Read and incorporate:**
+- `.sam/CODEBASE_CONTEXT.md` - Tech stack, patterns, components
+- Reusable components - Reference existing implementations
+- Architecture patterns - Follow established conventions
+- Tech stack versions - Ensure compatibility
+
+**Output in spec:**
+- Section documenting how new feature integrates
+- References to reusable components/services
+- Pattern alignment notes
+- Version compatibility considerations
+
 ### Architecture Overview
 - High-level system architecture
 - Technology stack with versions

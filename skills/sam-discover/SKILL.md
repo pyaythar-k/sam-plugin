@@ -17,9 +17,39 @@ Accept the user's raw feature description and assess scope:
 - **Single feature**: "Add user authentication"
 - **Multi-feature epic**: "Build a Tinder clone" → Propose breakdown
 
-### 2. Parallel Domain Research
+### 1.5. Check for Existing Features (NEW)
 
-Spawn 4 subagents simultaneously using WebSearch or mcp__web-search-prime__webSearchPrime:
+Before creating new feature documentation:
+
+**Check .sam/ directory for related features:**
+```bash
+find .sam/ -name "FEATURE_DOCUMENTATION.md" -exec grep -l "{feature_keywords}" {} \;
+```
+
+**If related features found:**
+- Inform user about potential overlap
+- Ask if this is an extension or replacement
+- Reference existing feature IDs in new documentation
+
+**Example output:**
+```
+ℹ️ Found related feature: .sam/001_user_auth/FEATURE_DOCUMENTATION.md
+This may overlap with your request. Would you like to:
+  1. Extend the existing feature
+  2. Create a new separate feature
+  3. Replace the existing feature
+```
+
+### 2. Parallel Domain Research (WITH FALLBACK)
+
+**Fallback Chain:** Web Search → Context7 → Brave Search → Built-in
+
+**Pattern:** Use the research fallback approach for feature research:
+1. Primary: mcp__web-search-prime__webSearchPrime (broad feature research)
+2. Fallback 1: mcp__plugin_context7_context7__query-docs (if web search unavailable)
+3. Fallback 2: WebSearch (built-in, if web-search-prime quota exceeded)
+
+Spawn 4 subagents simultaneously. **If primary method fails, automatically try fallbacks:**
 
 **Subagent 1 - Industry Best Practices**
 ```

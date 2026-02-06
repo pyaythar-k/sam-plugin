@@ -21,9 +21,48 @@ Identify:
 - Dependencies and constraints
 - Data models and API needs
 
-### 2. Context7 Research
+### 1.5. Codebase Context Analysis (NEW)
+
+Before generating specifications, understand the current project state:
+
+**Run codebase analyzer:**
+```bash
+python3 skills/sam-specs/scripts/codebase_analyzer.py {project_root}
+```
+
+**Read generated context:**
+```
+.sam/CODEBASE_CONTEXT.md
+```
+
+**Extract for spec generation:**
+- Existing tech stack → Match versions/patterns
+- Reusable components → Reference instead of recreate
+- Architecture patterns → Follow established conventions
+- Existing services → Integrate with current APIs
+- Existing features → Avoid duplication
+
+**Output includes in spec:**
+- Section: "Integration with Existing Codebase"
+- References to reusable components
+- Pattern alignment notes
+- Tech stack version compatibility
+
+### 2. Context7 Research (WITH FALLBACK)
+
+**Fallback Chain:** Context7 → Web Search → Brave Search → Built-in Search
+
+**Pattern:** Use the research fallback approach for tech research:
+1. Primary: Context7 (for latest framework documentation)
+2. Fallback 1: mcp__web-search-prime__webSearchPrime (if Context7 unavailable)
+3. Fallback 2: WebSearch (built-in, if web-search-prime quota exceeded)
 
 For each technical area identified, use `mcp__plugin_context7_context7__query-docs`:
+
+**If Context7 fails or is unavailable, automatically fallback to:**
+```
+mcp__web-search-prime__webSearchPrime(search_query="{query}")
+```
 
 **Framework/Stack Research:**
 ```

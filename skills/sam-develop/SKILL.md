@@ -26,10 +26,25 @@ Phase 4 of the SAM (Specs → Stories → Development) workflow. This skill orch
 
 ### 1. Task Planning
 
-1. Read `TECHNICAL_SPEC.md` from `.sam/{feature_id}/`
-2. Parse all checkbox tasks from the specification
-3. Identify uncompleted tasks (checkboxes with `[ ]`)
-4. Prioritize tasks based on dependencies
+1. **Read codebase context:**
+   ```
+   .sam/CODEBASE_CONTEXT.md
+   ```
+   Extract existing patterns, reusable components, and architecture conventions.
+
+2. Read `TECHNICAL_SPEC.md` from `.sam/{feature_id}/`
+
+3. Parse all checkbox tasks from the specification
+
+4. Identify uncompleted tasks (checkboxes with `[ ]`)
+
+5. Prioritize tasks based on dependencies
+
+6. **Pattern Validation:** Before spawning subagents, verify:
+   - New code follows existing patterns from CODEBASE_CONTEXT.md
+   - Reusable components are referenced, not recreated
+   - Tech stack versions are compatible
+   - Architecture aligns with existing conventions
 
 ### 2. Parallel Development Strategy
 
