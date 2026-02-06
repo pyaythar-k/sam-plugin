@@ -30,6 +30,7 @@
 ### Installing SAM (One-Time)
 
 1. Clone SAM to your Claude Code plugins directory:
+
    ```bash
    # macOS/Linux
    git clone https://github.com/your-org/sam-plugin.git ~/.claude/plugins/sam-plugin
@@ -46,8 +47,8 @@ In your project directory, run:
 
 ```bash
 # Option 1: Using absolute path to SAM scripts
-~/.claude/plugins/sam-plugin/scripts/observe-setup.sh
-~/.claude/plugins/sam-plugin/scripts/setup-pre-commit.sh
+~/.claude/plugins/marketplaces/sam-plugin-marketplace/scripts/observe-setup.sh
+~/.claude/plugins/marketplaces/sam-plugin-marketplace/scripts/setup-pre-commit.sh
 
 # Option 2: Copy SAM scripts to your project (recommended)
 mkdir -p .sam/scripts
@@ -114,13 +115,13 @@ ln -s ~/.claude/plugins/sam-plugin/scripts .sam/scripts
 
 ### Workflow Phases
 
-| Phase | Purpose | Output | Skill |
-|-------|---------|--------|-------|
-| **Discovery** | Document complete, unambiguous requirements | `FEATURE_DOCUMENTATION.md` | `sam-discover` |
-| **Stories** | Create INVEST-compliant user stories | `001_*.md`, `002_*.md` | `sam-stories` |
-| **Specs** | Generate actionable technical specifications | `PHASE_*.md`, `TASKS.json` | `sam-specs` |
-| **Development** | Parallel implementation with verification | Code + Tests | `sam-develop` |
-| **Validation** | Quality assurance and traceability | `VERIFICATION_REPORT.md` | `sam-validate` |
+| Phase           | Purpose                                      | Output                     | Skill          |
+| --------------- | -------------------------------------------- | -------------------------- | -------------- |
+| **Discovery**   | Document complete, unambiguous requirements  | `FEATURE_DOCUMENTATION.md` | `sam-discover` |
+| **Stories**     | Create INVEST-compliant user stories         | `001_*.md`, `002_*.md`     | `sam-stories`  |
+| **Specs**       | Generate actionable technical specifications | `PHASE_*.md`, `TASKS.json` | `sam-specs`    |
+| **Development** | Parallel implementation with verification    | Code + Tests               | `sam-develop`  |
+| **Validation**  | Quality assurance and traceability           | `VERIFICATION_REPORT.md`   | `sam-validate` |
 
 ## Core Skills
 
@@ -131,6 +132,7 @@ SAM provides **8 specialized skills** covering the entire software development l
 For small tasks that don't require the full discovery process.
 
 **Trigger Phrases:**
+
 - "quick fix"
 - "small change"
 - "minor bug"
@@ -138,6 +140,7 @@ For small tasks that don't require the full discovery process.
 - `/sam-quick`
 
 **Features:**
+
 - Size validation (8-question checklist)
 - Creates `QUICK_TASK.md` with checkbox steps
 - Integrates with `/sam-develop` for implementation
@@ -148,12 +151,14 @@ For small tasks that don't require the full discovery process.
 Comprehensive feature discovery through parallel web research.
 
 **Trigger Phrases:**
+
 - "discover feature"
 - "document feature request"
 - "clarify requirements"
 - "create feature documentation"
 
 **Features:**
+
 - Spawns 4 parallel research subagents
   - Industry best practices
   - Technical patterns
@@ -168,11 +173,13 @@ Comprehensive feature discovery through parallel web research.
 Transforms features into INVEST-compliant user stories.
 
 **Trigger Phrases:**
+
 - "generate user stories"
 - "create stories from feature"
 - "break down into stories"
 
 **Features:**
+
 - INVEST compliance checking (Independent, Negotiable, Valuable, Estimable, Small, Testable)
 - Automatic gap verification
 - Who/When/What title structure
@@ -184,11 +191,13 @@ Transforms features into INVEST-compliant user stories.
 Creates actionable technical specifications with executable tests.
 
 **Trigger Phrases:**
+
 - "generate technical specs"
 - "create technical specification"
 - "write implementation plan"
 
 **Features:**
+
 - Context7-powered documentation research
 - Project type classification (baas-fullstack, frontend-only, full-stack, static-site)
 - Generates `TASKS.json` for 98% token reduction
@@ -208,12 +217,14 @@ Creates actionable technical specifications with executable tests.
 Orchestrates parallel development execution with quality gates.
 
 **Trigger Phrases:**
+
 - "start development"
 - "implement feature"
 - "execute tasks"
 - "continue development"
 
 **Features:**
+
 - **Autonomous execution mode** - continues without stopping
 - **Parallel execution** - up to 3 subagents simultaneously
 - **Checkpoint/Resume** - pause and resume long tasks
@@ -227,12 +238,14 @@ Orchestrates parallel development execution with quality gates.
 Comprehensive quality assurance and traceability.
 
 **Features:**
+
 - Code-to-task mapping (bidirectional traceability)
 - Conflict detection (files, endpoints, databases, components)
 - Phase gate validation
 - Verification linking (tasks to tests)
 
 **Tools:**
+
 - `code_task_mapper.py` - Maps code to requirements
 - `conflict_detector.py` - Detects conflicts
 - `phase_gate_validator.py` - Validates phase completion
@@ -243,12 +256,14 @@ Comprehensive quality assurance and traceability.
 Comprehensive observability for the SAM workflow.
 
 **Features:**
+
 - Structured JSON logging
 - Performance metrics collection
 - Distributed tracing with span tracking
 - Error tracking with grouping
 
 **CLI Commands:**
+
 ```bash
 python3 -m skills.sam_observe.cli init
 python3 -m skills.sam_observe.cli logs --component sam-specs --level ERROR
@@ -263,12 +278,14 @@ python3 -m skills.sam_observe.cli export --output diag.zip
 At-a-glance view of all features in progress.
 
 **Trigger Phrases:**
+
 - "show status"
 - "track progress"
 - "status report"
 - "what's the status"
 
 **Features:**
+
 - Scans `.sam/` directory for feature status
 - Generates `STATUS.md` report
 - Performance metrics integration
@@ -288,6 +305,7 @@ At-a-glance view of all features in progress.
 SAM is installed as a Claude Code plugin. You only need to do this once.
 
 #### Option A: Clone to Plugins Directory
+
 ```bash
 # macOS/Linux
 git clone https://github.com/your-org/sam-plugin.git ~/.claude/plugins/sam-plugin
@@ -303,6 +321,7 @@ pip install -r requirements.txt
 ```
 
 #### Option B: Install from Marketplace (when available)
+
 ```bash
 # Via Claude Code CLI
 claude plugin install sam-plugin
@@ -345,6 +364,7 @@ cp ~/.claude/plugins/sam-plugin/scripts/*.sh .sam/scripts/
 ```
 
 This creates the `.sam/` directory structure:
+
 ```
 .sam/
 ├── logs/           # Structured JSON logs
@@ -362,6 +382,7 @@ This creates the `.sam/` directory structure:
 ```
 
 This installs hooks for:
+
 - Prettier formatting
 - ESLint linting
 - Black formatting (Python)
@@ -372,6 +393,7 @@ This installs hooks for:
 ### Configuration
 
 Edit `.sam/config.yaml` in your project to customize:
+
 - Log levels
 - Metrics retention
 - Trace sampling rate
@@ -461,16 +483,17 @@ User: /sam-status show all features
 
 SAM automatically classifies your project to tailor the workflow:
 
-| Type | Description | Phases | API Spec | Database |
-|------|-------------|--------|----------|----------|
-| **baas-fullstack** | Supabase/Firebase + frontend | 5 | BaaS Integration | RLS policies |
-| **frontend-only** | No backend + external API | 4 | Skip | Skip |
-| **full-stack** | Custom backend detected | 5 | Standard API | SQL DDL |
-| **static-site** | Next.js static, no backend | 4 | Skip | Skip |
+| Type               | Description                  | Phases | API Spec         | Database     |
+| ------------------ | ---------------------------- | ------ | ---------------- | ------------ |
+| **baas-fullstack** | Supabase/Firebase + frontend | 5      | BaaS Integration | RLS policies |
+| **frontend-only**  | No backend + external API    | 4      | Skip             | Skip         |
+| **full-stack**     | Custom backend detected      | 5      | Standard API     | SQL DDL      |
+| **static-site**    | Next.js static, no backend   | 4      | Skip             | Skip         |
 
 ### Classification Logic
 
 SAM detects project type by analyzing:
+
 - Package.json dependencies (`supabase`, `firebase`, `next`, `express`, etc.)
 - Directory structure (`pages/`, `api/`, `server/`, etc.)
 - Configuration files (`supabase/config.toml`, `firebase.json`, etc.)
@@ -480,6 +503,7 @@ SAM detects project type by analyzing:
 SAM enforces quality at multiple stages:
 
 ### Development Quality Gates
+
 ```bash
 # Enforced by sam-develop/scripts/lint_build_test.sh
 ┌─────────────────────────────────────────────────┐
@@ -495,6 +519,7 @@ SAM enforces quality at multiple stages:
 ### CI/CD Quality Gates
 
 **GitHub Actions** (`.github/workflows/sam-quality-gate.yml`):
+
 1. **quality-check** - Fast feedback (linting, type-check, build)
 2. **unit-tests** - Matrix testing across Node.js versions [18.x, 20.x]
 3. **coverage-check** - Coverage enforcement (80% threshold)
@@ -504,6 +529,7 @@ SAM enforces quality at multiple stages:
 7. **quality-gate** - Comprehensive final quality gate
 
 **GitLab CI** (`.gitlab-ci.yml`):
+
 - quality → test → coverage → security → contract → e2e → report
 - Caching for npm dependencies
 - Parallel matrix execution
@@ -869,18 +895,22 @@ Implement task 2 → Verify task 2 → Fix immediately
 ### Plugin-Specific Issues
 
 **Issue: "SAM skills not recognized"**
+
 - **Cause**: Plugin not loaded after installation
 - **Solution**: Restart Claude Code after installing the plugin
 
 **Issue: "Scripts not found" error**
+
 - **Cause**: Script path incorrect or scripts not copied to project
 - **Solution**: Use absolute path to plugin scripts (`~/.claude/plugins/sam-plugin/scripts/`) or copy scripts to your project's `.sam/scripts/` directory
 
 **Issue: "Claude Code plugins directory not found"**
+
 - **Cause**: Claude Code plugins directory doesn't exist yet
 - **Solution**: Create the directory first: `mkdir -p ~/.claude/plugins/` (or `%APPDATA%\claude\plugins\` on Windows)
 
 **Issue: "CI/CD workflows not running"**
+
 - **Cause**: CI/CD template files not copied to your project
 - **Solution**: Copy template files from plugin to your project:
   ```bash
@@ -892,26 +922,32 @@ Implement task 2 → Verify task 2 → Fix immediately
 ### Workflow-Specific Issues
 
 **Issue: "Feature not found" error**
+
 - **Cause**: Feature documentation doesn't exist in `.sam/`
 - **Solution**: Run `/sam-discover` first to create feature documentation
 
 **Issue: "TASKS.json not found" error**
+
 - **Cause**: Technical specification hasn't been generated
 - **Solution**: Run `/sam-specs` to generate TASKS.json
 
 **Issue: "Quality gate failed" error**
+
 - **Cause**: Linting, type-check, build, or tests failed
 - **Solution**: Run `npm run lint`, `npm run type-check`, `npm run build`, `npm test` locally
 
 **Issue: "Parallel execution deadlock" error**
+
 - **Cause**: Circular dependencies detected between tasks
 - **Solution**: SAM will offer resolution options (break cycle, sequential execution)
 
 **Issue: "Coverage below 80%" error**
+
 - **Cause**: Test coverage is below threshold
 - **Solution**: Add tests for uncovered code paths
 
 **Issue: "Observability not initialized" error**
+
 - **Cause**: `.sam/` directory doesn't exist in your project
 - **Solution**: Run the setup script in your project directory:
   ```bash
