@@ -1,3 +1,8 @@
+---
+name: sam-observe
+description: Observability and monitoring system for SAM workflow. Provides structured logging, metrics collection, distributed tracing, and error tracking. Enables debugging, performance optimization, and data-driven insights with full backward compatibility.
+---
+
 # sam-observe: Observability & Monitoring
 
 ## Overview

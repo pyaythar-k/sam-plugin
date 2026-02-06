@@ -1,3 +1,8 @@
+---
+name: sam-validate
+description: Phase 4 validation and verification agent. Provides code-to-task mapping, conflict detection, phase gate validation, and verification linking. Use for quality assurance, traceability, and checkpoint management during SAM workflow.
+---
+
 # SAM-Validate Skill
 
 Phase 4: Validation & Verification - Comprehensive quality assurance and traceability for the SAM workflow.
