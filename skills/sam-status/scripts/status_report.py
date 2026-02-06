@@ -187,20 +187,20 @@ def main():
     parser.add_argument('--all', action='store_true', help='Show all features')
     args = parser.parse_args()
 
-    cdd_dir = Path(".cdd")
+    sam_dir = Path(".sam")
 
-    if not cdd_dir.exists():
+    if not sam_dir.exists():
         print("❌ .sam/ directory not found")
         sys.exit(1)
 
     # Get feature directories
     if args.feature_id:
-        feature_dirs = [cdd_dir / args.feature_id]
+        feature_dirs = [sam_dir / args.feature_id]
         if not feature_dirs[0].exists():
             print(f"❌ Feature not found: {args.feature_id}")
             sys.exit(1)
     else:
-        feature_dirs = sorted([d for d in cdd_dir.iterdir() if d.is_dir()])
+        feature_dirs = sorted([d for d in sam_dir.iterdir() if d.is_dir()])
 
     if not feature_dirs:
         print("❌ No features found in .sam/")
@@ -214,7 +214,7 @@ def main():
 
     # Generate markdown report
     report = generate_status_report(features)
-    report_path = cdd_dir / "STATUS.md"
+    report_path = sam_dir / "STATUS.md"
     report_path.write_text(report)
 
     print(f"Full report saved to: {report_path}")

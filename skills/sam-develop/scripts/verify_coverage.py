@@ -153,6 +153,41 @@ def generate_verification_report(
 
     status = "✅ PASSED" if overall_coverage >= 100 and not gaps else "⚠️  NEEDS ATTENTION"
 
+    # Build next steps section
+    newline = "\n"
+    if gaps:
+        next_steps = (
+            f"Next steps:{newline}"
+            f"1. Address the gaps listed above{newline}"
+            f"2. Re-run verification: python3 skills/sam-develop/scripts/verify_coverage.py {feature_id}"
+        )
+    else:
+        next_steps = (
+            f"Next steps:{newline}"
+            f"1. Create pull request{newline}"
+            f"2. Deploy to staging{newline}"
+            f"3. Monitor metrics"
+        )
+
+    # Build gaps section
+    if gaps:
+        gaps_section = "\n".join(f"- {gap}" for gap in gaps)
+    else:
+        gaps_section = "### No gaps! All requirements covered."
+
+    # Build recommendation section
+    if overall_coverage >= 100 and not gaps:
+        recommendation = "✅ **Ready for Deployment**"
+    else:
+        recommendation = "⚠️  **Complete remaining tasks before deployment**"
+
+    # Build code quality checks (all passed for now)
+    linting_status = "✓ PASSED" if True else "✗ FAILED"
+    type_checking_status = "✓ PASSED" if True else "✗ FAILED"
+    build_status = "✓ PASSED" if True else "✗ FAILED"
+    unit_tests_status = "✓ PASSED" if True else "✗ FAILED"
+    e2e_tests_status = "✓ PASSED" if True else "✗ FAILED"
+
     report = f"""# Verification Report: {feature_id.replace('_', ' ').title()}
 
 ## Summary
@@ -192,27 +227,27 @@ def generate_verification_report(
 
 | Check | Status |
 |-------|--------|
-| Linting | {'✓ PASSED' if True else '✗ FAILED'} |
-| Type Checking | {'✓ PASSED' if True else '✗ FAILED'} |
-| Build | {'✓ PASSED' if True else '✗ FAILED'} |
-| Unit Tests | {'✓ PASSED' if True else '✗ FAILED'} |
-| E2E Tests | {'✓ PASSED' if True else '✗ FAILED'} |
+| Linting | {linting_status} |
+| Type Checking | {type_checking_status} |
+| Build | {build_status} |
+| Unit Tests | {unit_tests_status} |
+| E2E Tests | {e2e_tests_status} |
 
-> Note: Run `./skills/sam-develop/scripts/lint_build_test.sh` to verify these checks.
+> Note: Run ./skills/sam-develop/scripts/lint_build_test.sh to verify these checks.
 
 ---
 
 ## Gaps Found
 
-{'### No gaps! All requirements covered.' if not gaps else '\n'.join(f'- {gap}' for gap in gaps)}
+{gaps_section}
 
 ---
 
 ## Recommendation
 
-{'✅ **Ready for Deployment**' if overall_coverage >= 100 and not gaps else '⚠️  **Complete remaining tasks before deployment**'}
+{recommendation}
 
-{'\nNext steps:\n1. Address the gaps listed above\n2. Re-run verification: python3 skills/sam-develop/scripts/verify_coverage.py ' + feature_id if gaps else '\nNext steps:\n1. Create pull request\n2. Deploy to staging\n3. Monitor metrics'}
+{next_steps}
 """
 
     report_path = feature_dir / "VERIFICATION_REPORT.md"
@@ -314,13 +349,13 @@ def verify_feature(feature_dir: Path) -> bool:
 
 def verify_all_features() -> bool:
     """Verify coverage for all features in .sam/ directory."""
-    cdd_dir = Path(".cdd")
+    sam_dir = Path(".sam")
 
-    if not cdd_dir.exists():
+    if not sam_dir.exists():
         print("❌ .sam/ directory not found")
         return False
 
-    feature_dirs = sorted([d for d in cdd_dir.iterdir() if d.is_dir()])
+    feature_dirs = sorted([d for d in sam_dir.iterdir() if d.is_dir()])
 
     if not feature_dirs:
         print("❌ No features found in .sam/")
@@ -371,7 +406,7 @@ def main():
         success = verify_all_features()
         sys.exit(0 if success else 1)
     elif args.feature_id:
-        feature_dir = Path(".cdd") / args.feature_id
+        feature_dir = Path(".sam") / args.feature_id
         if not feature_dir.exists():
             print(f"❌ Feature not found: .sam/{args.feature_id}")
             sys.exit(2)

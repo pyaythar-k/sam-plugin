@@ -17,7 +17,7 @@ import sys
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Optional, TypedDict, List, Dict, Union
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -31,7 +31,16 @@ except ImportError:
 
 
 # Project type phase configurations
-PHASE_STRUCTURES = {
+class PhaseDict(TypedDict):
+    id: str
+    name: str
+
+class PhaseStructureDict(TypedDict):
+    phases: List[PhaseDict]
+    api_section: Optional[str]
+    database_section: Optional[str]
+
+PHASE_STRUCTURES: Dict[str, PhaseStructureDict] = {
     "baas-fullstack": {
         "phases": [
             {"id": "1", "name": "Foundation"},
@@ -89,7 +98,7 @@ def get_project_type_from_context(project_root: Path) -> str:
     return "unknown"
 
 
-def classify_manually(feature_dir: Path) -> str:
+def classify_manually(feature_dir: Path) -> Optional[str]:
     """
     Classify project based on feature documentation.
 

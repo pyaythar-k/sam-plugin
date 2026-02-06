@@ -19,6 +19,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, field
 
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(levelname)s: %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class CodebaseContext:
@@ -92,7 +99,7 @@ class HybridCodebaseAnalyzer:
     2. Scan actual codebase to validate and fill gaps
     """
 
-    def __init__(self, project_root: Path = None):
+    def __init__(self, project_root: Optional[Path] = None):
         self.project_root = project_root or Path.cwd()
         self.sam_dir = self.project_root / ".sam"
         self.context = CodebaseContext()
@@ -389,9 +396,9 @@ class HybridCodebaseAnalyzer:
         # Classification logic
         if has_baas and has_frontend:
             return "baas-fullstack"
-        elif has_frontend and not has_backend and not has_baas:
+        elif has_frontend and not has_custom_backend and not has_baas:
             return "frontend-only" if not is_static_site else "static-site"
-        elif has_frontend and has_backend:
+        elif has_frontend and has_custom_backend:
             return "full-stack"
         elif is_static_site:
             return "static-site"
@@ -452,14 +459,6 @@ def main():
     json_path = project_root / ".sam" / "CODEBASE_CONTEXT.json"
     json_path.write_text(json_output)
     print(f"✓ Codebase context JSON saved to: {json_path}")
-
-
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(levelname)s: %(message)s'
-)
-logger = logging.getLogger(__name__)
 
 
 if __name__ == "__main__":
